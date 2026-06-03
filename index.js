@@ -22,7 +22,7 @@ http.createServer((req, res) => {
 const roomConfigs = [
   {
     channelId: '1160272271806574753',
-    message: 'دراقون كانيلوني مجاني** <#1511469046506197084**>',
+    message: '**دراقون كانيلوني مجاني** <#1511469046506197084>',
     every: 1,
     webhookName: 'Ez shadow',
   },
