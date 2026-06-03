@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Events } = require('discord.js');
- 
+ const http = require('http');
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
