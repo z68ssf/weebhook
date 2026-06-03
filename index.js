@@ -7,6 +7,14 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
   ],
 });
+// Keep-alive server عشان Render ما يوقف البوت
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('البوت شغّال ✅');
+}).listen(PORT, () => {
+  console.log(`🌐 Keep-alive server شغّال على port ${PORT}`);
+});
  
 // =============================================
 //   إعدادات الرومات — عدّل هنا فقط
