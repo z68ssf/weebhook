@@ -41,7 +41,7 @@ const roomConfigs = [
   { channelId: '1489362661543121078', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 1, webhookName: 'Ez shadow' },
 ];
  
-const PROTECTION = { serverSettings: true, antiRaid: true, antiBots: true };
+const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true };
 const LIMITS = { bans: 10, channelDeletes: 2, roleDeletes: 2 };
 // =============================================
  
@@ -404,7 +404,7 @@ client.once(Events.ClientReady, async () => {
   }
   console.log('\n✅ الحمايات:');
   console.log(`  ${PROTECTION.serverSettings ? '✅' : '❌'} إعدادات السيرفر + Admin`);
-  console.log(`  ${PROTECTION.antiRaid ? '✅' : '❌'} ضد الريد — بان:${LIMITS.bans}(طرد) | رومات:${LIMITS.channelDeletes}(بان) | رولات:${LIMITS.roleDeletes}(بان)`);
+  console.log(`  ${PROTECTION.antiRaid ? '✅' : '❌'} ضد الرليد — بان:${LIMITS.bans}(طرد) | رومات:${LIMITS.channelDeletes}(بان) | رولات:${LIMITS.roleDeletes}(بان)`);
   console.log(`  ${PROTECTION.antiBots ? '✅' : '❌'} ضد البوتات`);
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 });
