@@ -24,7 +24,7 @@ http.createServer((req, res) => {
 const BOT_OWNER_ID   = '1224722940701048927';
 const BOT_TOKEN      = process.env.BOT_TOKEN || 'MTUxMTUwOTk2MDMzNTQyNTYyNg.GPAvb7.3LM1mxx2hnPLd3H-Gv3axhPS39w6Rv6zBYGUAw';
 const CLIENT_ID      = '1511509960335425626';
-const LOG_CHANNEL_ID = '1513253796598255828';
+const LOG_CHANNEL_ID = '1513261574012407858';
  
 const roomConfigs = [
   { channelId: '1160272271806574753', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 1, webhookName: 'Ez shadow' },
