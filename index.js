@@ -377,7 +377,6 @@ client.on(Events.MessageCreate, async (msg) => {
       const sent = await roomState.hook.send({ content: roomState.config.message });
       roomState.lastMessageId = sent.id;
       console.log(`✉️ تم الإرسال في #${msg.channel.name}`);
-      await sendLog({ type: 'webhook', executor: `<#${msg.channelId}>`, violation: `إرسال رسالة: ${roomState.config.message}`, punishment: '—', color: 0x5865F2 });
     } catch (err) {
       if (err.code === 10015) {
         const iconURL = roomState.guild.iconURL({ extension: 'png', size: 256 });
