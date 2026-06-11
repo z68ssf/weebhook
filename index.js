@@ -27,18 +27,18 @@ const CLIENT_ID      = '1511509960335425626';
 const LOG_CHANNEL_ID = '1513261574012407858';
  
 const roomConfigs = [
-  { channelId: '1160272271806574753', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1160271731810906152', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1409582649487659152', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1465885721083777034', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1401133375015747706', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1493332535365599303', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1461763814146965688', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1464024227761098896', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1461764244646268958', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1461764456634646538', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1507029588109168822', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1489362661543121078', message: '🔥**دراقون كانيلوني مجاني** <#1511469046506197084>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1160272271806574753', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1160271731810906152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1409582649487659152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1465885721083777034', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1401133375015747706', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1493332535365599303', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1461763814146965688', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1464024227761098896', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1461764244646268958', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1461764456634646538', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1507029588109168822', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1489362661543121078', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
 ];
  
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true };
