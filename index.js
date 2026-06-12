@@ -616,9 +616,9 @@ client.on(Events.MessageCreate, async (msg) => {
 client.once(Events.ClientReady, async () => {
   const presences = [
     { name: '𝒃𝒚 𝒛𝒘𝒉.', type: 0 },
-    { name: 'Ez shadow 🔥', type: 3 },
-    { name: 'the server 👁️', type: 3 },
-    { name: '𝒙𝒖𝒉. 🛡️', type: 2 },
+    { name: 'Ez shadow ', type: 3 },
+    { name: 'hello', type: 3 },
+    { name: '𝒃𝒚 𝒛𝒘𝒉.', type: 2 },
   ];
   let presenceIndex = 0;
   const setPresence = () => {
