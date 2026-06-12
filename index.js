@@ -1,31 +1,32 @@
-const { Client, GatewayIntentBits, Events, AuditLogEvent, PermissionsBitField, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {
+  Client, GatewayIntentBits, Events, AuditLogEvent,
+  PermissionsBitField, REST, Routes, SlashCommandBuilder,
+  EmbedBuilder, MessageFlags,
+} = require('discord.js');
 const http = require('http');
-const fs = require('fs');
- 
+const fs   = require('fs');
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.GuildExpressions,
     GatewayIntentBits.MessageContent,
   ],
 });
- 
+
 const PORT = process.env.PORT || 3001;
-http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('البوت شغّال ✅');
-}).listen(PORT, () => {
-  console.log(`🌐 Keep-alive server شغّال على port ${PORT}`);
+http.createServer((req, res) => { res.writeHead(200); res.end('Bot is running ✅'); }).listen(PORT, () => {
+  console.log(`🌐 Keep-alive server running on port ${PORT}`);
 });
- 
-// =============================================
+
 const BOT_OWNER_ID   = '1224722940701048927';
 const BOT_TOKEN      = process.env.BOT_TOKEN || 'MTUxMTUwOTk2MDMzNTQyNTYyNg.GPAvb7.3LM1mxx2hnPLd3H-Gv3axhPS39w6Rv6zBYGUAw';
 const CLIENT_ID      = '1511509960335425626';
 const LOG_CHANNEL_ID = '1513261574012407858';
- 
+
 const roomConfigs = [
   { channelId: '1160272271806574753', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1160271731810906152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
@@ -40,24 +41,70 @@ const roomConfigs = [
   { channelId: '1507029588109168822', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1489362661543121078', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
 ];
- 
+
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true };
-const LIMITS = { bans: 10, channelDeletes: 2, roleDeletes: 2 };
+const LIMITS     = { bans: 10, channelDeletes: 2, roleDeletes: 2 };
 // =============================================
- 
-const E = {
-  ghost: '<:001:1367537609512976446>',
-  dot:   '<a:Goku_black:1367537723912622202>',
-};
- 
-// ======= وايت ليست =======
+
+// ======= Advanced Whitelist =======
+// Structure:
+// {
+//   users:        [userId, ...]       — full whitelist (bypasses all protections)
+//   roles:        [roleId, ...]       — full whitelist for a role
+//   channelDel:   [userId/roleId, ...]— allowed to delete channels without punishment
+//   bots:         [botId, ...]        — specific bots allowed to be added
+//   webhookCreate:[userId/roleId, ...]— allowed to create webhooks anywhere
+//   ban:          [userId/roleId, ...]— allowed to ban without punishment
+//   addBots:      [userId/roleId, ...]— allowed to add bots
+// }
 const WL_FILE = './whitelist.json';
-function loadWhitelist() { try { return JSON.parse(fs.readFileSync(WL_FILE, 'utf8')); } catch { return []; } }
-function saveWhitelist(list) { fs.writeFileSync(WL_FILE, JSON.stringify(list, null, 2)); }
+function loadWhitelist() {
+  try {
+    const data = JSON.parse(fs.readFileSync(WL_FILE, 'utf8'));
+    if (Array.isArray(data)) return { users: data, roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], ...data };
+  } catch {
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
+  }
+}
+function saveWhitelist() { fs.writeFileSync(WL_FILE, JSON.stringify(whitelist, null, 2)); }
 let whitelist = loadWhitelist();
-function isWhitelisted(userId) { return userId === BOT_OWNER_ID || whitelist.includes(userId); }
- 
-// ======= عداد يومي =======
+
+// Full whitelist check — bypasses everything
+function isWhitelisted(userId, memberRoles = []) {
+  if (userId === BOT_OWNER_ID) return true;
+  if (whitelist.users.includes(userId)) return true;
+  if (memberRoles.some(r => whitelist.roles.includes(r))) return true;
+  return false;
+}
+
+// Specific whitelist check — only bypasses that protection type
+function hasSpecificWL(userId, memberRoles = [], type) {
+  if (isWhitelisted(userId, memberRoles)) return true;
+  const list = whitelist[type] || [];
+  if (list.includes(userId)) return true;
+  if (memberRoles.some(r => list.includes(r))) return true;
+  return false;
+}
+
+async function getMemberRoles(guild, userId) {
+  try {
+    const m = await guild.members.fetch(userId);
+    return m.roles.cache.map(r => r.id);
+  } catch { return []; }
+}
+
+// ======= Random server emoji =======
+function getRandomEmoji(guild) {
+  try {
+    const emojis = guild?.emojis?.cache;
+    if (!emojis || emojis.size === 0) return '⚡';
+    const arr = [...emojis.values()];
+    return arr[Math.floor(Math.random() * arr.length)].toString();
+  } catch { return '⚡'; }
+}
+
+// ======= Daily counter =======
 const dailyActions = {};
 function getToday() { return new Date().toISOString().split('T')[0]; }
 function incrementCount(userId, action) {
@@ -67,118 +114,193 @@ function incrementCount(userId, action) {
   dailyActions[userId][t][action] = (dailyActions[userId][t][action] || 0) + 1;
   return dailyActions[userId][t][action];
 }
- 
-// ======= اللوق =======
-async function sendLog({ type, executor, violation, punishment, extra = [], color = 0xE24B4A }) {
+
+// ======= Colors =======
+const COLORS = { danger: 0xE24B4A, warn: 0xFAA61A, success: 0x57C97A, info: 0x5865F2 };
+
+// ======= Log embed builder =======
+function buildLogMessage({ type, executor, violation, punishment, extra = [], color = COLORS.danger, guild = null }) {
+  const e1 = guild ? getRandomEmoji(guild) : '⚡';
+  const e2 = guild ? getRandomEmoji(guild) : '🔥';
+  const e3 = guild ? getRandomEmoji(guild) : '✨';
+
+  const titles = {
+    ban:          `${e1} تبنيد عضو`,
+    serverEdit:   `${e1} تغيير إعدادات السيرفر`,
+    adminRole:    `${e1} إعطاء صلاحية Administrator`,
+    channelDel:   `${e1} حذف روم`,
+    roleDel:      `${e1} حذف رتبة`,
+    botAdd:       `${e1} إضافة بوت غير مصرح`,
+    whitelist:    `${e1} تعديل الوايت ليست`,
+    webhook:      `${e1} إنشاء ويبهوك`,
+    kick:         `${e1} طرد عضو`,
+  };
+
+  const typeLabels = {
+    ban:        '🔴 تبنيد',       serverEdit: '🔴 تغيير السيرفر',
+    adminRole:  '🔴 صلاحية Admin', channelDel: '🟡 حذف روم',
+    roleDel:    '🟡 حذف رتبة',    botAdd:     '🔴 بوت غير مصرح',
+    whitelist:  '🟢 وايت ليست',   webhook:    '🟡 ويبهوك',
+    kick:       '🟡 طرد',
+  };
+
+  const desc = [
+    `${e2} **المنفّذ**`,
+    `> ${executor || 'غير معروف'}`,
+    '',
+    `${e3} **المخالفة**`,
+    `> ${violation || '—'}`,
+    '',
+    `⚠️ **العقوبة**`,
+    `> ${punishment || '—'}`,
+  ];
+
+  if (extra.length) extra.forEach(e => desc.push('', `**${e.name}**`, `> ${e.value}`));
+
+  return new EmbedBuilder()
+    .setColor(color)
+    .setTitle(titles[type] || `${e1} ${type}`)
+    .setDescription(desc.join('\n'))
+    .addFields([{ name: '━━━━━━━━━━━━━━━━━━', value: `\`${typeLabels[type] || type}\` • <t:${Math.floor(Date.now() / 1000)}:R>`, inline: false }])
+    .setThumbnail(client.user.displayAvatarURL())
+    .setFooter({ text: 'نظام الحماية • by zwh.', iconURL: client.user.displayAvatarURL() })
+    .setTimestamp();
+}
+
+async function sendLog(options) {
   try {
     const channel = await client.channels.fetch(LOG_CHANNEL_ID);
     if (!channel) return;
-    const titles = {
-      ban: 'تبنيد عضو', serverEdit: 'تغيير إعدادات السيرفر', adminRole: 'إعطاء صلاحية Administrator',
-      channelDel: 'حذف روم', roleDel: 'حذف رتبة', botAdd: 'إضافة بوت غير مصرح',
-      whitelist: 'تعديل الوايت ليست', webhook: 'إرسال ويبهوك', kick: 'طرد عضو',
-    };
-    const fields = [];
-    if (executor)   fields.push({ name: `${E.dot} المخالف`,  value: executor,   inline: false });
-    if (violation)  fields.push({ name: `${E.dot} المخالفة`, value: violation,  inline: false });
-    if (punishment) fields.push({ name: `${E.dot} العقوبة`,  value: punishment, inline: false });
-    fields.push(...extra);
-    const embed = new EmbedBuilder()
-      .setColor(color)
-      .setAuthor({ name: `${E.ghost}  ${titles[type] || type}`, iconURL: client.user.displayAvatarURL() })
-      .addFields(fields)
-      .setTimestamp()
-      .setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() });
-    await channel.send({ embeds: [embed] });
-  } catch (err) { console.error(`❌ فشل إرسال اللوق: ${err.message}`); }
+    await channel.send({ embeds: [buildLogMessage(options)] });
+  } catch (err) { console.error(`❌ Log failed: ${err.message}`); }
 }
- 
-// ======= بان =======
+
 async function punish(guild, userId, reason) {
   try {
-    await guild.members.ban(userId, { reason: `حماية تلقائية: ${reason}` });
-    console.log(`${E.dot} تم تبنيد ${userId} — ${reason}`);
-    await sendLog({ type: 'ban', executor: `<@${userId}>`, violation: reason, punishment: `${E.ghost} بان دائم`, color: 0xE24B4A });
-  } catch (err) { console.error(`❌ فشل البان: ${err.message}`); }
+    await guild.members.ban(userId, { reason: `Auto-protection: ${reason}` });
+    console.log(`🔨 Banned ${userId} — ${reason}`);
+  } catch (err) { console.error(`❌ Ban failed: ${err.message}`); }
 }
- 
-// ======= طرد (بدل البان لتجاوز حد البان) =======
+
 async function kick(guild, userId, reason) {
   try {
     const member = await guild.members.fetch(userId);
-    await member.kick(`حماية تلقائية: ${reason}`);
-    console.log(`👢 تم طرد ${userId} — ${reason}`);
-    await sendLog({ type: 'kick', executor: `<@${userId}>`, violation: reason, punishment: `👢 طرد من السيرفر`, color: 0xFAA61A });
-  } catch (err) { console.error(`❌ فشل الطرد: ${err.message}`); }
+    await member.kick(`Auto-protection: ${reason}`);
+    console.log(`👢 Kicked ${userId} — ${reason}`);
+  } catch (err) { console.error(`❌ Kick failed: ${err.message}`); }
 }
- 
-// ======= أوديت لوق =======
+
 async function getAuditUser(guild, auditAction, targetId = null) {
   try {
     await new Promise(r => setTimeout(r, 500));
-    const logs = await guild.fetchAuditLogs({ limit: 1, type: auditAction });
+    const logs  = await guild.fetchAuditLogs({ limit: 1, type: auditAction });
     const entry = logs.entries.first();
     if (!entry) return null;
     if (targetId && entry.target?.id !== targetId) return null;
     return entry.executor;
   } catch { return null; }
 }
- 
+
+// ======= Reply embed builder =======
+function replyEmbed({ color, title, description, fields = [], footer = 'by zwh.' }) {
+  return new EmbedBuilder()
+    .setColor(color)
+    .setTitle(title)
+    .setDescription(description)
+    .addFields(fields)
+    .setThumbnail(client.user.displayAvatarURL())
+    .setFooter({ text: footer, iconURL: client.user.displayAvatarURL() })
+    .setTimestamp();
+}
+
 // =======================================
-//   سجّل السلاش كوماند
+//   Register slash commands
 // =======================================
 async function registerCommands() {
+  const wlTypes = [
+    { name: '🛡️ Full Whitelist — User',         value: 'user' },
+    { name: '👑 Full Whitelist — Role',          value: 'role' },
+    { name: '🤖 Whitelist — Add Bots',           value: 'addBots' },
+    { name: '⚖️ Whitelist — Ban',               value: 'ban' },
+    { name: '#️⃣ Whitelist — Channel Delete',    value: 'channelDel' },
+    { name: '🪝 Whitelist — Webhook Create',     value: 'webhookCreate' },
+    { name: '🤖 Whitelist — Specific Bot',       value: 'bots' },
+  ];
+
   const commands = [
     new SlashCommandBuilder()
-      .setName('whitelist').setDescription('إدارة الوايت ليست')
-      .addSubcommand(s => s.setName('add').setDescription('أضف شخص').addUserOption(o => o.setName('user').setDescription('الشخص').setRequired(true)))
-      .addSubcommand(s => s.setName('remove').setDescription('أزل شخص').addUserOption(o => o.setName('user').setDescription('الشخص').setRequired(true)))
-      .addSubcommand(s => s.setName('list').setDescription('عرض الوايت ليست'))
+      .setName('whitelist')
+      .setDescription('Manage the advanced whitelist')
+      .addSubcommand(s => s.setName('add').setDescription('Add a user, role, or channel to the whitelist')
+        .addStringOption(o => o.setName('type').setDescription('Whitelist type').setRequired(true).addChoices(...wlTypes))
+        .addUserOption(o => o.setName('user').setDescription('User or bot'))
+        .addRoleOption(o => o.setName('role').setDescription('Role'))
+        .addChannelOption(o => o.setName('channel').setDescription('Channel')))
+      .addSubcommand(s => s.setName('remove').setDescription('Remove from the whitelist')
+        .addStringOption(o => o.setName('type').setDescription('Whitelist type').setRequired(true).addChoices(...wlTypes))
+        .addUserOption(o => o.setName('user').setDescription('User or bot'))
+        .addRoleOption(o => o.setName('role').setDescription('Role'))
+        .addChannelOption(o => o.setName('channel').setDescription('Channel')))
+      .addSubcommand(s => s.setName('list').setDescription('View the full whitelist'))
       .toJSON(),
+
     new SlashCommandBuilder()
-      .setName('protection').setDescription('إدارة حمايات البوت')
-      .addSubcommand(s => s.setName('status').setDescription('عرض حالة الحمايات'))
-      .addSubcommand(s => s.setName('toggle').setDescription('تفعيل أو تعطيل حماية')
-        .addStringOption(o => o.setName('type').setDescription('نوع الحماية').setRequired(true)
-          .addChoices(
-            { name: 'حماية إعدادات السيرفر + Admin', value: 'serverSettings' },
-            { name: 'حماية ضد الرايد', value: 'antiRaid' },
-            { name: 'حماية ضد البوتات', value: 'antiBots' },
-          ))
-        .addBooleanOption(o => o.setName('enabled').setDescription('تفعيل أو تعطيل').setRequired(true)))
+      .setName('protection')
+      .setDescription('Manage bot protections')
+      .addSubcommand(s => s.setName('status').setDescription('View protection status'))
+      .addSubcommand(s => s.setName('toggle').setDescription('Enable or disable a protection')
+        .addStringOption(o => o.setName('type').setDescription('Protection type').setRequired(true).addChoices(
+          { name: 'Server Settings + Admin', value: 'serverSettings' },
+          { name: 'Anti-Raid',               value: 'antiRaid' },
+          { name: 'Anti-Bots',               value: 'antiBots' },
+        ))
+        .addBooleanOption(o => o.setName('enabled').setDescription('Enable or disable').setRequired(true)))
+      .addSubcommand(s => s.setName('limits').setDescription('Edit daily action limits')
+        .addIntegerOption(o => o.setName('bans').setDescription('Daily ban limit').setMinValue(1))
+        .addIntegerOption(o => o.setName('channels').setDescription('Channel delete limit').setMinValue(1))
+        .addIntegerOption(o => o.setName('roles').setDescription('Role delete limit').setMinValue(1)))
       .toJSON(),
+
     new SlashCommandBuilder()
-      .setName('webhooks').setDescription('عرض كل الويبهوكات في السيرفر')
+      .setName('webhooks')
+      .setDescription('Manage webhooks')
+      .addSubcommand(s => s.setName('list').setDescription('List all webhooks'))
+      .addSubcommand(s => s.setName('delete').setDescription('Delete a webhook')
+        .addStringOption(o => o.setName('id').setDescription('Webhook ID').setRequired(true)))
       .toJSON(),
   ];
+
   const rest = new REST({ version: '10' }).setToken(BOT_TOKEN);
   try {
     await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-    console.log('✅ تم تسجيل السلاش كوماندات');
-  } catch (err) { console.error(`❌ فشل تسجيل الأوامر: ${err.message}`); }
+    console.log('✅ Slash commands registered');
+  } catch (err) { console.error(`❌ Failed to register commands: ${err.message}`); }
 }
- 
+
 // =======================================
-//   حماية 1 — إعدادات السيرفر + Admin
+//   Protection 1 — Server Settings + Admin
 // =======================================
 const guildUpdateCooldown = new Set();
 client.on(Events.GuildUpdate, async (oldGuild, newGuild) => {
   if (!PROTECTION.serverSettings) return;
   if (guildUpdateCooldown.has(newGuild.id)) return;
-  const changed = oldGuild.name !== newGuild.name || oldGuild.icon !== newGuild.icon || oldGuild.banner !== newGuild.banner || oldGuild.vanityURLCode !== newGuild.vanityURLCode;
+  const changed = oldGuild.name !== newGuild.name || oldGuild.icon !== newGuild.icon
+    || oldGuild.banner !== newGuild.banner || oldGuild.vanityURLCode !== newGuild.vanityURLCode;
   if (!changed) return;
   const executor = await getAuditUser(newGuild, AuditLogEvent.GuildUpdate);
-  if (!executor || executor.id === client.user.id || isWhitelisted(executor.id)) return;
-  await sendLog({ type: 'serverEdit', executor: `<@${executor.id}>`, violation: 'تغيير إعدادات السيرفر بدون صلاحية', punishment: `${E.ghost} بان دائم`, color: 0xE24B4A });
+  if (!executor || executor.id === client.user.id) return;
+  const roles = await getMemberRoles(newGuild, executor.id);
+  if (isWhitelisted(executor.id, roles)) return;
+  await sendLog({ type: 'serverEdit', executor: `<@${executor.id}>`, violation: 'Changed server settings without permission', punishment: '🔨  ban', color: COLORS.danger, guild: newGuild });
   guildUpdateCooldown.add(newGuild.id);
   setTimeout(() => guildUpdateCooldown.delete(newGuild.id), 5000);
-  await punish(newGuild, executor.id, 'تغيير إعدادات السيرفر');
+  await punish(newGuild, executor.id, 'Changed server settings');
   try {
     if (oldGuild.name !== newGuild.name) await newGuild.setName(oldGuild.name);
     if (oldGuild.vanityURLCode !== newGuild.vanityURLCode && oldGuild.vanityURLCode) await newGuild.setVanityCode(oldGuild.vanityURLCode);
   } catch {}
 });
- 
+
 const memberRoleCooldown = new Set();
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (!PROTECTION.serverSettings) return;
@@ -187,14 +309,16 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   const dangerRole = addedRoles.find(r => r.permissions.has(PermissionsBitField.Flags.Administrator));
   if (!dangerRole) return;
   const executor = await getAuditUser(newMember.guild, AuditLogEvent.MemberRoleUpdate, newMember.id);
-  if (!executor || executor.id === client.user.id || isWhitelisted(executor.id)) return;
-  await sendLog({ type: 'adminRole', executor: `<@${executor.id}>`, violation: `إعطاء رتبة **${dangerRole.name}** لـ <@${newMember.id}> وهي تحتوي على Administrator`, punishment: `${E.ghost} بان دائم + سحب الرتبة`, color: 0xE24B4A });
+  if (!executor || executor.id === client.user.id) return;
+  const roles = await getMemberRoles(newMember.guild, executor.id);
+  if (isWhitelisted(executor.id, roles)) return;
+  await sendLog({ type: 'adminRole', executor: `<@${executor.id}>`, violation: `Gave role **${dangerRole.name}** (Admin) to <@${newMember.id}>`, punishment: '🔨  ban + role removed', color: COLORS.danger, guild: newMember.guild });
   memberRoleCooldown.add(newMember.id);
   setTimeout(() => memberRoleCooldown.delete(newMember.id), 5000);
   try { await newMember.roles.remove(dangerRole); } catch {}
-  await punish(newMember.guild, executor.id, 'إعطاء رتبة Administrator بدون صلاحية');
+  await punish(newMember.guild, executor.id, 'Gave Administrator role without permission');
 });
- 
+
 const roleUpdateCooldown = new Set();
 client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
   if (!PROTECTION.serverSettings) return;
@@ -203,210 +327,336 @@ client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
   const hasAdmin = newRole.permissions.has(PermissionsBitField.Flags.Administrator);
   if (hadAdmin || !hasAdmin) return;
   const executor = await getAuditUser(newRole.guild, AuditLogEvent.RoleUpdate, newRole.id);
-  if (!executor || executor.id === client.user.id || isWhitelisted(executor.id)) return;
-  await sendLog({ type: 'adminRole', executor: `<@${executor.id}>`, violation: `إضافة صلاحية Administrator لرتبة **${newRole.name}**`, punishment: `${E.ghost} بان دائم + استعادة صلاحيات الرتبة`, color: 0xE24B4A });
+  if (!executor || executor.id === client.user.id) return;
+  const roles = await getMemberRoles(newRole.guild, executor.id);
+  if (isWhitelisted(executor.id, roles)) return;
+  await sendLog({ type: 'adminRole', executor: `<@${executor.id}>`, violation: `Added Administrator permission to role **${newRole.name}**`, punishment: '🔨  ban + permissions restored', color: COLORS.danger, guild: newRole.guild });
   roleUpdateCooldown.add(newRole.id);
   setTimeout(() => roleUpdateCooldown.delete(newRole.id), 5000);
   try { await newRole.setPermissions(oldRole.permissions); } catch {}
-  await punish(newRole.guild, executor.id, 'إضافة صلاحية Administrator لرتبة');
+  await punish(newRole.guild, executor.id, 'Added Administrator to a role');
 });
- 
+
 // =======================================
-//   حماية 2 — ضد الريد
+//   Protection 2 — Anti-Raid
 // =======================================
 client.on(Events.ChannelDelete, async (channel) => {
   if (!PROTECTION.antiRaid || !channel.guild) return;
   const executor = await getAuditUser(channel.guild, AuditLogEvent.ChannelDelete, channel.id);
-  if (!executor || isWhitelisted(executor.id)) return;
+  if (!executor) return;
+  const roles = await getMemberRoles(channel.guild, executor.id);
+  // channelDel whitelist — allowed to delete channels without punishment
+  if (hasSpecificWL(executor.id, roles, 'channelDel')) return;
   const count = incrementCount(executor.id, 'channelDeletes');
-  await sendLog({ type: 'channelDel', executor: `<@${executor.id}>`, violation: `حذف روم **${channel.name}** — العداد: ${count}/${LIMITS.channelDeletes}`, punishment: count >= LIMITS.channelDeletes ? `${E.ghost} بان دائم` : `⚠️ تحذير — ${LIMITS.channelDeletes - count} متبقية`, color: count >= LIMITS.channelDeletes ? 0xE24B4A : 0xFAA61A });
-  if (count >= LIMITS.channelDeletes) await punish(channel.guild, executor.id, `تجاوز حد حذف الرومات (${LIMITS.channelDeletes}/يوم)`);
+  const over  = count >= LIMITS.channelDeletes;
+  await sendLog({ type: 'channelDel', executor: `<@${executor.id}>`, violation: `Deleted **${channel.name}** — ${count}/${LIMITS.channelDeletes}`, punishment: over ? '🔨  ban' : `⚠️ Warning — ${LIMITS.channelDeletes - count} remaining`, color: over ? COLORS.danger : COLORS.warn, guild: channel.guild });
+  if (over) await punish(channel.guild, executor.id, `Exceeded channel delete limit (${LIMITS.channelDeletes}/day)`);
 });
- 
+
 client.on(Events.GuildRoleDelete, async (role) => {
   if (!PROTECTION.antiRaid) return;
   const executor = await getAuditUser(role.guild, AuditLogEvent.RoleDelete, role.id);
-  if (!executor || isWhitelisted(executor.id)) return;
+  if (!executor) return;
+  const roles = await getMemberRoles(role.guild, executor.id);
+  if (isWhitelisted(executor.id, roles)) return;
   const count = incrementCount(executor.id, 'roleDeletes');
-  await sendLog({ type: 'roleDel', executor: `<@${executor.id}>`, violation: `حذف رتبة **${role.name}** — العداد: ${count}/${LIMITS.roleDeletes}`, punishment: count >= LIMITS.roleDeletes ? `${E.ghost} بان دائم` : `⚠️ تحذير — ${LIMITS.roleDeletes - count} متبقية`, color: count >= LIMITS.roleDeletes ? 0xE24B4A : 0xFAA61A });
-  if (count >= LIMITS.roleDeletes) await punish(role.guild, executor.id, `تجاوز حد حذف الرولات (${LIMITS.roleDeletes}/يوم)`);
+  const over  = count >= LIMITS.roleDeletes;
+  await sendLog({ type: 'roleDel', executor: `<@${executor.id}>`, violation: `Deleted role **${role.name}** — ${count}/${LIMITS.roleDeletes}`, punishment: over ? '🔨  ban' : `⚠️ Warning — ${LIMITS.roleDeletes - count} remaining`, color: over ? COLORS.danger : COLORS.warn, guild: role.guild });
+  if (over) await punish(role.guild, executor.id, `Exceeded role delete limit (${LIMITS.roleDeletes}/day)`);
 });
- 
-// حماية البان اليومي — طرد بدل بان
+
+// Ban protection — kick instead of ban when limit exceeded
 client.on(Events.GuildAuditLogEntryCreate, async (entry, guild) => {
   if (!PROTECTION.antiRaid) return;
   if (entry.action !== AuditLogEvent.MemberBanAdd) return;
   const executor = entry.executor;
-  if (!executor) return;
-  if (executor.id === client.user.id) return;
-  if (isWhitelisted(executor.id)) return;
- 
+  if (!executor || executor.id === client.user.id) return;
+  const roles = await getMemberRoles(guild, executor.id);
+  // ban whitelist — allowed to ban without punishment
+  if (hasSpecificWL(executor.id, roles, 'ban')) return;
   const count = incrementCount(executor.id, 'bans');
-  await sendLog({
-    type: 'ban',
-    executor: `<@${executor.id}>`,
-    violation: `بان <@${entry.target?.id}> — العداد: ${count}/${LIMITS.bans}`,
-    punishment: count >= LIMITS.bans ? `👢 طرد من السيرفر` : `⚠️ تحذير — ${LIMITS.bans - count} متبقية`,
-    color: count >= LIMITS.bans ? 0xFAA61A : 0xFAA61A,
-  });
- 
-  // طرد بدل بان لما يتجاوز الحد
-  if (count >= LIMITS.bans)
-    await kick(guild, executor.id, `تجاوز حد البان اليومي (${LIMITS.bans}/يوم)`);
+  const over  = count >= LIMITS.bans;
+  await sendLog({ type: 'ban', executor: `<@${executor.id}>`, violation: `Banned <@${entry.target?.id}> — ${count}/${LIMITS.bans}`, punishment: over ? '👢 Kicked from server' : `⚠️ Warning — ${LIMITS.bans - count} remaining`, color: COLORS.warn, guild });
+  if (over) await kick(guild, executor.id, `Exceeded daily ban limit (${LIMITS.bans}/day)`);
 });
- 
+
 // =======================================
-//   حماية 3 — ضد البوتات
+//   Protection 3 — Anti-Bots
 // =======================================
 client.on(Events.GuildMemberAdd, async (member) => {
   if (!PROTECTION.antiBots || !member.user.bot) return;
+  // specific bot whitelist
+  if (whitelist.bots.includes(member.id)) return;
   const executor = await getAuditUser(member.guild, AuditLogEvent.BotAdd, member.id);
-  await sendLog({ type: 'botAdd', executor: executor ? `<@${executor.id}>` : 'غير معروف', violation: `إضافة بوت <@${member.id}> بدون إذن`, punishment: `${E.ghost} بان البوت + بان المضيف`, color: 0xE24B4A });
-  await punish(member.guild, member.id, 'إضافة بوت غير مصرح');
-  if (executor && !isWhitelisted(executor.id)) await punish(member.guild, executor.id, 'إضافة بوت غير مصرح');
+  const roles = executor ? await getMemberRoles(member.guild, executor.id) : [];
+  // addBots whitelist — allowed to add bots
+  if (executor && hasSpecificWL(executor.id, roles, 'addBots')) return;
+  await sendLog({ type: 'botAdd', executor: executor ? `<@${executor.id}>` : 'Unknown', violation: `Added bot <@${member.id}> without permission`, punishment: '🔨 Bot banned + adder banned', color: COLORS.danger, guild: member.guild });
+  await punish(member.guild, member.id, 'Unauthorized bot added');
+  if (executor && !isWhitelisted(executor.id, roles)) await punish(member.guild, executor.id, 'Added unauthorized bot');
 });
- 
+
 // =======================================
-//   الإنتراكشنز
+//   Protection 4 — Webhook guard
+// =======================================
+client.on(Events.WebhooksUpdate, async (channel) => {
+  if (!PROTECTION.serverSettings) return;
+  try {
+    const executor = await getAuditUser(channel.guild, AuditLogEvent.WebhookCreate);
+    if (!executor || executor.id === client.user.id) return;
+    const roles = await getMemberRoles(channel.guild, executor.id);
+    // webhookCreate whitelist — allowed to create webhooks anywhere
+    if (hasSpecificWL(executor.id, roles, 'webhookCreate')) return;
+    const hooks   = await channel.fetchWebhooks();
+    const newHook = hooks.find(h => h.owner?.id === executor.id);
+    await sendLog({ type: 'webhook', executor: `<@${executor.id}>`, violation: `Created webhook in <#${channel.id}>`, punishment: '🔨  ban + webhook deleted', color: COLORS.danger, guild: channel.guild });
+    if (newHook) try { await newHook.delete(); } catch {}
+    await punish(channel.guild, executor.id, 'Created unauthorized webhook');
+  } catch {}
+});
+
+// =======================================
+//   Interactions
 // =======================================
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
- 
+
   const ownerOnly = async () => {
     if (interaction.user.id !== BOT_OWNER_ID) {
-      await interaction.reply({ embeds: [new EmbedBuilder().setColor(0xE24B4A).setAuthor({ name: `${E.ghost}  خطأ في الصلاحيات`, iconURL: client.user.displayAvatarURL() }).setDescription('> هذا الأمر مخصص للمالك فقط.').setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
+      await interaction.reply({
+        embeds: [replyEmbed({ color: COLORS.danger, title: '🚫 Access Denied', description: '> This command is for <@1224722940701048927>  only.' })],
+        ephemeral: true,
+      });
       return false;
     }
     return true;
   };
- 
-  // ======= /webhooks =======
+
+  // ===================== /webhooks =====================
   if (interaction.commandName === 'webhooks') {
     if (!await ownerOnly()) return;
-    await interaction.deferReply();
-    try {
-      const allWebhooks = await interaction.guild.fetchWebhooks();
-      if (!allWebhooks.size) return interaction.editReply({ embeds: [new EmbedBuilder().setColor(0x5865F2).setAuthor({ name: `${E.ghost}  الويبهوكات`, iconURL: client.user.displayAvatarURL() }).setDescription('> لا يوجد ويبهوكات في السيرفر.').setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
-      const lines = allWebhooks.map(w => {
-        const ch = w.channelId ? `<#${w.channelId}>` : 'غير معروف';
-        const ow = w.owner ? `<@${w.owner.id}>` : 'غير معروف';
-        const mine = w.owner?.id === client.user.id ? ` ${E.ghost}` : '';
-        return `**${w.name}${mine}**\n> ${E.dot} الروم: ${ch}\n> ${E.dot} المنشئ: ${ow}\n> ${E.dot} \`${w.id}\``;
-      });
-      const chunks = []; let current = '';
-      for (const line of lines) { if ((current + '\n\n' + line).length > 3900) { chunks.push(current); current = line; } else current = current ? current + '\n\n' + line : line; }
-      if (current) chunks.push(current);
-      return interaction.editReply({ embeds: chunks.map((chunk, i) => new EmbedBuilder().setColor(0x5865F2).setAuthor(i === 0 ? { name: `${E.ghost}  الويبهوكات (${allWebhooks.size})`, iconURL: client.user.displayAvatarURL() } : { name: '​' }).setDescription(chunk).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })) });
-    } catch (err) { return interaction.editReply({ embeds: [new EmbedBuilder().setColor(0xE24B4A).setDescription(`❌ فشل جلب الويبهوكات: ${err.message}`)] }); }
+    const sub = interaction.options.getSubcommand();
+    await interaction.deferReply({ ephemeral: true });
+
+    if (sub === 'list') {
+      try {
+        const all = await interaction.guild.fetchWebhooks();
+        if (!all.size) return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: '🪝 Webhooks', description: '> No webhooks found in this server.' })] });
+        const lines = all.map(w => {
+          const ch   = w.channelId ? `<#${w.channelId}>` : 'Unknown';
+          const ow   = w.owner ? `<@${w.owner.id}>` : 'Unknown';
+          const mine = w.owner?.id === client.user.id ? ' *(bot)*' : '';
+          return `**${w.name}${mine}**\n> 📌 Channel: ${ch}\n> 👤 Owner: ${ow}\n> 🔑 \`${w.id}\``;
+        });
+        const chunks = []; let cur = '';
+        for (const l of lines) { if ((cur + '\n\n' + l).length > 3800) { chunks.push(cur); cur = l; } else cur = cur ? cur + '\n\n' + l : l; }
+        if (cur) chunks.push(cur);
+        return interaction.editReply({ embeds: chunks.map((c, i) => replyEmbed({ color: COLORS.info, title: i === 0 ? `🪝 Webhooks (${all.size})` : '​', description: c })) });
+      } catch (err) {
+        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.danger, title: '❌ Error', description: `Failed to fetch webhooks: ${err.message}` })] });
+      }
+    }
+
+    if (sub === 'delete') {
+      const hookId = interaction.options.getString('id');
+      try {
+        const hook = await interaction.guild.fetchWebhooks().then(h => h.get(hookId));
+        if (!hook) return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Not Found', description: '> No webhook found with that ID.' })] });
+        await hook.delete('Manual deletion by owner');
+        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Deleted', description: `> Webhook **${hook.name}** deleted successfully.` })] });
+      } catch (err) {
+        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.danger, title: '❌ Error', description: `Failed to delete: ${err.message}` })] });
+      }
+    }
   }
- 
-  // ======= /protection =======
+
+  // ===================== /protection =====================
   if (interaction.commandName === 'protection') {
     if (!await ownerOnly()) return;
     const sub = interaction.options.getSubcommand();
+
     if (sub === 'status') {
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865F2).setAuthor({ name: `${E.ghost}  حالة الحمايات`, iconURL: client.user.displayAvatarURL() }).addFields([
-        { name: `${E.dot} إعدادات السيرفر + Admin`, value: PROTECTION.serverSettings ? '✅ مفعّل' : '❌ معطّل', inline: false },
-        { name: `${E.dot} ضد الرايد`, value: PROTECTION.antiRaid ? `✅ مفعّل — بان: ${LIMITS.bans} | رومات: ${LIMITS.channelDeletes} | رولات: ${LIMITS.roleDeletes}` : '❌ معطّل', inline: false },
-        { name: `${E.dot} ضد البوتات`, value: PROTECTION.antiBots ? '✅ مفعّل' : '❌ معطّل', inline: false },
-      ]).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
+      const s = v => v ? '✅ Enabled' : '❌ Disabled';
+      return interaction.reply({
+        embeds: [replyEmbed({
+          color: COLORS.info, title: 'Protection Status',
+          description: [
+            `**Server Settings**`, `> ${s(PROTECTION.serverSettings)}`, '',
+            `**Anti-Raid**`, `> ${s(PROTECTION.antiRaid)} — Bans: \`${LIMITS.bans}\` | Channels: \`${LIMITS.channelDeletes}\` | Roles: \`${LIMITS.roleDeletes}\``, '',
+            `**Anti-Bots**`, `> ${s(PROTECTION.antiBots)}`,
+          ].join('\n'),
+        })],
+        ephemeral: true,
+      });
     }
+
     if (sub === 'toggle') {
-      const type = interaction.options.getString('type');
+      const type    = interaction.options.getString('type');
       const enabled = interaction.options.getBoolean('enabled');
-      const names = { serverSettings: 'إعدادات السيرفر + Admin', antiRaid: 'ضد الرايد', antiBots: 'ضد البوتات' };
+      const names   = { serverSettings: 'Server Settings + Admin', antiRaid: 'Anti-Raid', antiBots: 'Anti-Bots' };
       PROTECTION[type] = enabled;
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(enabled ? 0x57c97a : 0xE24B4A).setAuthor({ name: `${E.ghost}  تم ${enabled ? 'تفعيل' : 'تعطيل'} الحماية`, iconURL: client.user.displayAvatarURL() }).addFields([
-        { name: `${E.dot} الحماية`, value: names[type], inline: false },
-        { name: `${E.dot} الحالة`, value: enabled ? '✅ مفعّل' : '❌ معطّل', inline: false },
-      ]).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
+      return interaction.reply({
+        embeds: [replyEmbed({ color: enabled ? COLORS.success : COLORS.danger, title: enabled ? '✅ Enabled' : '❌ Disabled', description: `> **${names[type]}** is now ${enabled ? 'enabled' : 'disabled'}.` })],
+        ephemeral: true,
+      });
+    }
+
+    if (sub === 'limits') {
+      const bans = interaction.options.getInteger('bans');
+      const ch   = interaction.options.getInteger('channels');
+      const rl   = interaction.options.getInteger('roles');
+      const changes = [];
+      if (bans != null) { LIMITS.bans           = bans; changes.push(`Bans: \`${bans}\``); }
+      if (ch   != null) { LIMITS.channelDeletes = ch;   changes.push(`Channels: \`${ch}\``); }
+      if (rl   != null) { LIMITS.roleDeletes    = rl;   changes.push(`Roles: \`${rl}\``); }
+      if (!changes.length) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: '> No values provided.' })], ephemeral: true });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Limits Updated', description: `> ${changes.join(' — ')}` })], ephemeral: true });
     }
   }
- 
-  // ======= /whitelist =======
+
+  // ===================== /whitelist =====================
   if (interaction.commandName === 'whitelist') {
     if (!await ownerOnly()) return;
-    const sub = interaction.options.getSubcommand();
+    const sub  = interaction.options.getSubcommand();
+    const type = interaction.options.getString('type');
+
+    // type value → whitelist key
+    const keyMap = {
+      user: 'users', role: 'roles', addBots: 'addBots',
+      ban: 'ban', channelDel: 'channelDel', webhookCreate: 'webhookCreate', bots: 'bots',
+    };
+
+    const typeNames = {
+      user:          'Full Whitelist (User)',
+      role:          'Full Whitelist (Role)',
+      addBots:       'Add Bots Whitelist',
+      ban:           'Ban Whitelist',
+      channelDel:    '#️Channel Delete Whitelist',
+      webhookCreate: 'Webhook Create Whitelist',
+      bots:          'Specific Bot Whitelist',
+    };
+
+    const getTarget = () => {
+      const user    = interaction.options.getUser('user');
+      const role    = interaction.options.getRole('role');
+      const channel = interaction.options.getChannel('channel');
+      if (['user', 'ban', 'addBots', 'bots'].includes(type)) {
+        if (!user) return { error: 'You must specify a **user or bot**.' };
+        return { id: user.id, name: `<@${user.id}>` };
+      }
+      if (type === 'role') {
+        if (!role) return { error: 'You must specify a **role**.' };
+        return { id: role.id, name: `<@&${role.id}>` };
+      }
+      if (['channelDel', 'webhookCreate'].includes(type)) {
+        // For channelDel/webhookCreate you can add a user OR a role (not a channel)
+        if (user) return { id: user.id, name: `<@${user.id}>` };
+        if (role) return { id: role.id, name: `<@&${role.id}>` };
+        return { error: 'You must specify a **user** or **role**.' };
+      }
+      return { error: 'Invalid type.' };
+    };
+
     if (sub === 'add') {
-      const target = interaction.options.getUser('user');
-      if (whitelist.includes(target.id)) return interaction.reply({ embeds: [new EmbedBuilder().setColor(0xFAA61A).setAuthor({ name: `${E.ghost}  تنبيه`, iconURL: client.user.displayAvatarURL() }).setDescription(`> **${target.tag}** موجود في الوايت ليست بالفعل.`).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
-      whitelist.push(target.id); saveWhitelist(whitelist);
-      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `إضافة <@${target.id}> للوايت ليست`, punishment: '—', color: 0x57c97a });
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57c97a).setAuthor({ name: `${E.ghost}  تم بنجاح`, iconURL: client.user.displayAvatarURL() }).setDescription(`> تمت إضافة **${target.tag}** للوايت ليست.`).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
+      const target = getTarget();
+      if (target.error) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: `> ${target.error}` })], ephemeral: true });
+      const key  = keyMap[type];
+      const list = whitelist[key] || [];
+      if (list.includes(target.id)) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Already Exists', description: `> ${target.name} is already in **${typeNames[type]}**.` })], ephemeral: true });
+      whitelist[key] = [...list, target.id];
+      saveWhitelist();
+      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `Added ${target.name} to (${typeNames[type]})`, punishment: '—', color: COLORS.success, guild: interaction.guild });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Added', description: `> ${target.name} added to **${typeNames[type]}**.` })], ephemeral: true });
     }
+
     if (sub === 'remove') {
-      const target = interaction.options.getUser('user');
-      if (!whitelist.includes(target.id)) return interaction.reply({ embeds: [new EmbedBuilder().setColor(0xFAA61A).setAuthor({ name: `${E.ghost}  تنبيه`, iconURL: client.user.displayAvatarURL() }).setDescription(`> **${target.tag}** غير موجود في الوايت ليست.`).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
-      whitelist = whitelist.filter(id => id !== target.id); saveWhitelist(whitelist);
-      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `إزالة <@${target.id}> من الوايت ليست`, punishment: '—', color: 0xE24B4A });
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x57c97a).setAuthor({ name: `${E.ghost}  تم بنجاح`, iconURL: client.user.displayAvatarURL() }).setDescription(`> تمت إزالة **${target.tag}** من الوايت ليست.`).setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
+      const target = getTarget();
+      if (target.error) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: `> ${target.error}` })], ephemeral: true });
+      const key  = keyMap[type];
+      const list = whitelist[key] || [];
+      if (!list.includes(target.id)) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Not Found', description: `> ${target.name} is not in **${typeNames[type]}**.` })], ephemeral: true });
+      whitelist[key] = list.filter(id => id !== target.id);
+      saveWhitelist();
+      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `Removed ${target.name} from (${typeNames[type]})`, punishment: '—', color: COLORS.danger, guild: interaction.guild });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Removed', description: `> ${target.name} removed from **${typeNames[type]}**.` })], ephemeral: true });
     }
+
     if (sub === 'list') {
-      if (!whitelist.length) return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865F2).setAuthor({ name: `${E.ghost}  الوايت ليست`, iconURL: client.user.displayAvatarURL() }).setDescription('> الوايت ليست فارغة حالياً.').setTimestamp().setFooter({ text: 'by zwh.', iconURL: client.user.displayAvatarURL() })] });
-      const list = whitelist.map((id, i) => `${i + 1}. <@${id}>`).join('\n');
-      return interaction.reply({ embeds: [new EmbedBuilder().setColor(0x5865F2).setAuthor({ name: `${E.ghost}  الوايت ليست`, iconURL: client.user.displayAvatarURL() }).setDescription(list).setTimestamp().setFooter({ text: `by zwh. • إجمالي: ${whitelist.length} شخص`, iconURL: client.user.displayAvatarURL() })] });
+      const sections = [
+        { key: 'users',         label: ' Full Whitelist (Users)',          mention: id => `<@${id}>` },
+        { key: 'roles',         label: ' Full Whitelist (Roles)',           mention: id => `<@&${id}>` },
+        { key: 'addBots',       label: ' Can Add Bots',                    mention: id => `<@${id}>` },
+        { key: 'ban',           label: ' Can Ban',                         mention: id => `<@${id}>` },
+        { key: 'channelDel',    label: '#️ Can Delete Channels (no limit)',   mention: id => `<@${id}>` },
+        { key: 'webhookCreate', label: ' Can Create Webhooks',             mention: id => `<@${id}>` },
+        { key: 'bots',          label: ' Allowed Bots',                    mention: id => `<@${id}>` },
+      ];
+      const desc = sections.map(s => {
+        const list = whitelist[s.key] || [];
+        return `**${s.label}**\n> ${list.length ? list.map(s.mention).join(' ') : '*empty*'}`;
+      }).join('\n\n');
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.info, title: ' Full Whitelist', description: desc, footer: `by zwh. • Total users: ${whitelist.users.length}` })], ephemeral: true });
     }
   }
 });
- 
+
 // =======================================
-//   ويبهوكات
+//   Auto Webhooks (room configs)
 // =======================================
 const state = {};
- 
+
 async function setupWebhook(channel, config, guildIconURL) {
   try {
-    const existingHooks = await channel.fetchWebhooks();
-    let hook = existingHooks.find(w => w.name === config.webhookName && w.owner?.id === client.user.id);
-    if (!hook) { hook = await channel.createWebhook({ name: config.webhookName, avatar: guildIconURL || undefined }); console.log(`✅ تم إنشاء ويبهوك في #${channel.name}`); }
+    const existing = await channel.fetchWebhooks();
+    let hook = existing.find(w => w.name === config.webhookName && w.owner?.id === client.user.id);
+    if (!hook) { hook = await channel.createWebhook({ name: config.webhookName, avatar: guildIconURL || undefined }); console.log(`✅ Created webhook in #${channel.name}`); }
     else { await hook.edit({ avatar: guildIconURL || undefined }); }
     return hook;
-  } catch (err) { console.error(`❌ فشل الويبهوك في #${channel.name}: ${err.message}`); return null; }
+  } catch (err) { console.error(`❌ Webhook setup failed in #${channel.name}: ${err.message}`); return null; }
 }
- 
+
 client.on(Events.MessageCreate, async (msg) => {
   if (msg.author.bot) return;
-  const roomState = state[msg.channelId];
-  if (!roomState || !roomState.hook) return;
-  roomState.counter++;
-  console.log(`💬 #${msg.channel.name} — ${roomState.counter}/${roomState.config.every}`);
-  if (roomState.counter >= roomState.config.every) {
-    roomState.counter = 0;
-    if (roomState.lastMessageId) { try { const oldMsg = await msg.channel.messages.fetch(roomState.lastMessageId); await oldMsg.delete(); } catch {} }
+  const rs = state[msg.channelId];
+  if (!rs || !rs.hook) return;
+  rs.counter++;
+  if (rs.counter >= rs.config.every) {
+    rs.counter = 0;
+    if (rs.lastMessageId) { try { const old = await msg.channel.messages.fetch(rs.lastMessageId); await old.delete(); } catch {} }
     try {
-      const sent = await roomState.hook.send({ content: roomState.config.message });
-      roomState.lastMessageId = sent.id;
-      console.log(`✉️ تم الإرسال في #${msg.channel.name}`);
+      const sent = await rs.hook.send({ content: rs.config.message });
+      rs.lastMessageId = sent.id;
     } catch (err) {
       if (err.code === 10015) {
-        const iconURL = roomState.guild.iconURL({ extension: 'png', size: 256 });
-        roomState.hook = await setupWebhook(roomState.channel, roomState.config, iconURL);
-        if (roomState.hook) { const sent = await roomState.hook.send({ content: roomState.config.message }); roomState.lastMessageId = sent.id; }
+        rs.hook = await setupWebhook(rs.channel, rs.config, rs.guild.iconURL({ extension: 'png', size: 256 }));
+        if (rs.hook) { const sent = await rs.hook.send({ content: rs.config.message }); rs.lastMessageId = sent.id; }
       }
     }
   }
 });
- 
+
+// =======================================
+//   Ready
+// =======================================
 client.once(Events.ClientReady, async () => {
-  console.log(`\n🤖 البوت شغّال — ${client.user.tag}`);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log(`\n🤖 ${client.user.tag} — Online`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   await registerCommands();
   for (const config of roomConfigs) {
     try {
       const channel = await client.channels.fetch(config.channelId);
-      if (!channel) { console.warn(`⚠️ ما لقى الروم: ${config.channelId}`); continue; }
-      const guild = channel.guild;
-      const iconURL = guild.iconURL({ extension: 'png', size: 256 });
-      const hook = await setupWebhook(channel, config, iconURL);
+      if (!channel) { console.warn(`⚠️ Channel not found: ${config.channelId}`); continue; }
+      const guild   = channel.guild;
+      const hook    = await setupWebhook(channel, config, guild.iconURL({ extension: 'png', size: 256 }));
       state[config.channelId] = { counter: 0, lastMessageId: null, hook, config, channel, guild };
-      console.log(`📌 جاهز — #${channel.name} | كل ${config.every} رسايل`);
-    } catch (err) { console.error(`❌ خطأ: ${err.message}`); }
+      console.log(`📌 #${channel.name} — every ${config.every} messages`);
+    } catch (err) { console.error(`❌ ${err.message}`); }
   }
-  console.log('\n✅ الحمايات:');
-  console.log(`  ${PROTECTION.serverSettings ? '✅' : '❌'} إعدادات السيرفر + Admin`);
-  console.log(`  ${PROTECTION.antiRaid ? '✅' : '❌'} ضد الرليد — بان:${LIMITS.bans}(طرد) | رومات:${LIMITS.channelDeletes}(بان) | رولات:${LIMITS.roleDeletes}(بان)`);
-  console.log(`  ${PROTECTION.antiBots ? '✅' : '❌'} ضد البوتات`);
-  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log('\n✅ Protections:');
+  console.log(`  ${PROTECTION.serverSettings ? '✅' : '❌'} Server Settings + Admin`);
+  console.log(`  ${PROTECTION.antiRaid ? '✅' : '❌'} Anti-Raid — Bans:${LIMITS.bans} | Channels:${LIMITS.channelDeletes} | Roles:${LIMITS.roleDeletes}`);
+  console.log(`  ${PROTECTION.antiBots ? '✅' : '❌'} Anti-Bots`);
+  console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 });
- 
+
 client.login(BOT_TOKEN);
