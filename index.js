@@ -33,7 +33,6 @@ const roomConfigs = [
   { channelId: '1409582649487659152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1465885721083777034', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1401133375015747706', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1493332535365599303', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1461763814146965688', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1464024227761098896', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1461764244646268958', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
