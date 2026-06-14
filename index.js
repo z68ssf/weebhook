@@ -46,7 +46,7 @@ const LIMITS     = { bans: 10, channelDeletes: 2, roleDeletes: 2 };
 
 // ======= الإيموجيات الثابتة للوق =======
 const LOG_EMOJIS = [
-  '<:messi:1496807560504803368>',
+  '<:by_ez_137:1514763870198173797>',
   '<:13PaimonThink:1491152797280895118>',
   '<:by_ez_38:1473583670496596019>',
   '<a:by_ez_37:1514646707923718241>',
@@ -206,13 +206,13 @@ function replyEmbed({ color, title, description, fields = [], footer = 'by zwh.'
 // =======================================
 async function registerCommands() {
   const wlTypes = [
-    { name: '🛡️ Full Whitelist — User',      value: 'user' },
-    { name: '👑 Full Whitelist — Role',       value: 'role' },
-    { name: '🤖 Whitelist — Add Bots',        value: 'addBots' },
-    { name: '⚖️ Whitelist — Ban',            value: 'ban' },
-    { name: '#️⃣ Whitelist — Channel Delete', value: 'channelDel' },
-    { name: '🪝 Whitelist — Webhook Create',  value: 'webhookCreate' },
-    { name: '🤖 Whitelist — Specific Bot',    value: 'bots' },
+    { name: 'Full Whitelist — User',      value: 'user' },
+    { name: 'Full Whitelist — Role',       value: 'role' },
+    { name: 'Whitelist — Add Bots',        value: 'addBots' },
+    { name: 'Whitelist — Ban',            value: 'ban' },
+    { name: '#️Whitelist — Channel Delete', value: 'channelDel' },
+    { name: 'Whitelist — Webhook Create',  value: 'webhookCreate' },
+    { name: 'Whitelist — Specific Bot',    value: 'bots' },
   ];
 
   const commands = [
@@ -316,7 +316,7 @@ client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
   if (!executor || executor.id === client.user.id) return;
   const roles = await getMemberRoles(newRole.guild, executor.id);
   if (isWhitelisted(executor.id, roles)) return;
-  await sendLog({ type: 'adminRole', executor: `<@${executor.id}>`, violation: `Added Administrator permission to role **${newRole.name}**`, punishment: '🔨 بان دائم + استعادة الصلاحيات', color: COLORS.danger });
+  await sendLog({ type: 'adminRole', executor: `<@${executor.id}>`, violation: `Added Administrator permission to role **${newRole.name}**`, punishment: ' بان  + استعادة الصلاحيات', color: COLORS.danger });
   roleUpdateCooldown.add(newRole.id);
   setTimeout(() => roleUpdateCooldown.delete(newRole.id), 5000);
   try { await newRole.setPermissions(oldRole.permissions); } catch {}
@@ -334,7 +334,7 @@ client.on(Events.ChannelDelete, async (channel) => {
   if (hasSpecificWL(executor.id, roles, 'channelDel')) return;
   const count = incrementCount(executor.id, 'channelDeletes');
   const over  = count >= LIMITS.channelDeletes;
-  await sendLog({ type: 'channelDel', executor: `<@${executor.id}>`, violation: `Deleted **${channel.name}** — ${count}/${LIMITS.channelDeletes}`, punishment: over ? '🔨 بان دائم' : `⚠️ تحذير — ${LIMITS.channelDeletes - count} متبقية`, color: over ? COLORS.danger : COLORS.warn });
+  await sendLog({ type: 'channelDel', executor: `<@${executor.id}>`, violation: `Deleted **${channel.name}** — ${count}/${LIMITS.channelDeletes}`, punishment: over ? 'بان ' : `⚠️ تحذير — ${LIMITS.channelDeletes - count} متبقية`, color: over ? COLORS.danger : COLORS.warn });
   if (over) await punish(channel.guild, executor.id, `Exceeded channel delete limit (${LIMITS.channelDeletes}/day)`);
 });
 
@@ -346,7 +346,7 @@ client.on(Events.GuildRoleDelete, async (role) => {
   if (isWhitelisted(executor.id, roles)) return;
   const count = incrementCount(executor.id, 'roleDeletes');
   const over  = count >= LIMITS.roleDeletes;
-  await sendLog({ type: 'roleDel', executor: `<@${executor.id}>`, violation: `Deleted role **${role.name}** — ${count}/${LIMITS.roleDeletes}`, punishment: over ? '🔨 بان دائم' : `⚠️ تحذير — ${LIMITS.roleDeletes - count} متبقية`, color: over ? COLORS.danger : COLORS.warn });
+  await sendLog({ type: 'roleDel', executor: `<@${executor.id}>`, violation: `Deleted role **${role.name}** — ${count}/${LIMITS.roleDeletes}`, punishment: over ? ' بان ' : `⚠️ تحذير — ${LIMITS.roleDeletes - count} متبقية`, color: over ? COLORS.danger : COLORS.warn });
   if (over) await punish(role.guild, executor.id, `Exceeded role delete limit (${LIMITS.roleDeletes}/day)`);
 });
 
@@ -372,7 +372,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
   const executor = await getAuditUser(member.guild, AuditLogEvent.BotAdd, member.id);
   const roles = executor ? await getMemberRoles(member.guild, executor.id) : [];
   if (executor && hasSpecificWL(executor.id, roles, 'addBots')) return;
-  await sendLog({ type: 'botAdd', executor: executor ? `<@${executor.id}>` : 'غير معروف', violation: `Added bot <@${member.id}> without permission`, punishment: '🔨 بان البوت + بان المضيف', color: COLORS.danger });
+  await sendLog({ type: 'botAdd', executor: executor ? `<@${executor.id}>` : 'غير معروف', violation: `Added bot <@${member.id}> without permission`, punishment: ' بان البوت + بان المضيف', color: COLORS.danger });
   await punish(member.guild, member.id, 'Unauthorized bot added');
   if (executor && !isWhitelisted(executor.id, roles)) await punish(member.guild, executor.id, 'Added unauthorized bot');
 });
@@ -389,7 +389,7 @@ client.on(Events.WebhooksUpdate, async (channel) => {
     if (hasSpecificWL(executor.id, roles, 'webhookCreate')) return;
     const hooks   = await channel.fetchWebhooks();
     const newHook = hooks.find(h => h.owner?.id === executor.id);
-    await sendLog({ type: 'webhook', executor: `<@${executor.id}>`, violation: `Created webhook in <#${channel.id}>`, punishment: '🔨 بان دائم + حذف الويبهوك', color: COLORS.danger });
+    await sendLog({ type: 'webhook', executor: `<@${executor.id}>`, violation: `Created webhook in <#${channel.id}>`, punishment: ' بان  + حذف الويبهوك', color: COLORS.danger });
     if (newHook) try { await newHook.delete(); } catch {}
     await punish(channel.guild, executor.id, 'Created unauthorized webhook');
   } catch {}
@@ -557,13 +557,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (sub === 'list') {
       const sections = [
-        { key: 'users',         label: '🛡️ Full Whitelist (Users)',         mention: id => `<@${id}>` },
-        { key: 'roles',         label: '👑 Full Whitelist (Roles)',          mention: id => `<@&${id}>` },
-        { key: 'addBots',       label: '🤖 Can Add Bots',                   mention: id => `<@${id}>` },
-        { key: 'ban',           label: '⚖️ Can Ban',                        mention: id => `<@${id}>` },
-        { key: 'channelDel',    label: '#️⃣ Can Delete Channels (no limit)', mention: id => `<@${id}>` },
-        { key: 'webhookCreate', label: '🪝 Can Create Webhooks',            mention: id => `<@${id}>` },
-        { key: 'bots',          label: '🤖 Allowed Bots',                   mention: id => `<@${id}>` },
+        { key: 'users',         label: 'Full Whitelist (Users)',         mention: id => `<@${id}>` },
+        { key: 'roles',         label: 'Full Whitelist (Roles)',          mention: id => `<@&${id}>` },
+        { key: 'addBots',       label: 'Can Add Bots',                   mention: id => `<@${id}>` },
+        { key: 'ban',           label: 'Can Ban',                        mention: id => `<@${id}>` },
+        { key: 'channelDel',    label: 'can Delete Channels (no limit)', mention: id => `<@${id}>` },
+        { key: 'webhookCreate', label: 'Can Create Webhooks',            mention: id => `<@${id}>` },
+        { key: 'bots',          label: 'Allowed Bots',                   mention: id => `<@${id}>` },
       ];
       const desc = sections.map(s => {
         const list = whitelist[s.key] || [];
