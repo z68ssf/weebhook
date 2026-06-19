@@ -69,9 +69,9 @@ function loadWhitelist() {
   try {
     const data = JSON.parse(fs.readFileSync(WL_FILE, 'utf8'));
     if (Array.isArray(data)) return { users: data, roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
-    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [], ...data };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [], lockedCategories: [], ...data };
   } catch {
-    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [] };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [], lockedCategories: [] };
   }
 }
 function saveWhitelist() { fs.writeFileSync(WL_FILE, JSON.stringify(whitelist, null, 2)); }
@@ -315,6 +315,16 @@ async function registerCommands() {
       .addSubcommand(s => s.setName('remove').setDescription('Unlock a role')
         .addRoleOption(o => o.setName('role').setDescription('Role to unlock').setRequired(true)))
       .addSubcommand(s => s.setName('list').setDescription('View all locked roles'))
+      .toJSON(),
+
+    new SlashCommandBuilder()
+      .setName('catlock')
+      .setDescription('Lock a category — only full whitelisted can change permissions')
+      .addSubcommand(s => s.setName('add').setDescription('Lock a category')
+        .addChannelOption(o => o.setName('category').setDescription('Category to lock').setRequired(true)))
+      .addSubcommand(s => s.setName('remove').setDescription('Unlock a category')
+        .addChannelOption(o => o.setName('category').setDescription('Category to unlock').setRequired(true)))
+      .addSubcommand(s => s.setName('list').setDescription('View all locked categories'))
       .toJSON(),
 
     new SlashCommandBuilder()
@@ -780,6 +790,40 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
+  // ===================== /catlock =====================
+  if (interaction.commandName === 'catlock') {
+    if (!await ownerOnly()) return;
+    const sub      = interaction.options.getSubcommand();
+    const category = interaction.options.getChannel('category');
+
+    if (sub === 'add') {
+      if (!whitelist.lockedCategories) whitelist.lockedCategories = [];
+      if (whitelist.lockedCategories.includes(category.id))
+        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> **${category.name}** مقفلة مسبقاً.` })] });
+      whitelist.lockedCategories.push(category.id);
+      saveWhitelist();
+      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `قفل كاتيقوري **${category.name}**`, punishment: 'فقط الفول وايت ليست يقدرون يغيرون صلاحياتها', color: COLORS.warn });
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> **${category.name}** مقفلة — أي تغيير في صلاحياتها أو رومات داخلها يتصدى له فوراً.` })] });
+    }
+
+    if (sub === 'remove') {
+      if (!whitelist.lockedCategories || !whitelist.lockedCategories.includes(category.id))
+        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> **${category.name}** مو مقفلة.` })] });
+      whitelist.lockedCategories = whitelist.lockedCategories.filter(id => id !== category.id);
+      saveWhitelist();
+      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `فك قفل كاتيقوري **${category.name}**`, punishment: '—', color: COLORS.success });
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> **${category.name}** الحين غير مقفلة.` })] });
+    }
+
+    if (sub === 'list') {
+      const locked = whitelist.lockedCategories || [];
+      const desc = locked.length
+        ? locked.map(id => `> <#${id}>`).join('\n')
+        : '> *لا يوجد كاتيقوريات مقفلة*';
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '🔒 الكاتيقوريات المقفلة', description: desc })] });
+    }
+  }
+
   // ===================== /whitelist =====================
   if (interaction.commandName === 'whitelist') {
     if (!await ownerOnly()) return;
@@ -883,6 +927,64 @@ client.on(Events.MessageCreate, async (msg) => {
     rs.counter = 0;
     await sendWebhookMessage(rs);
   }
+});
+
+
+// =======================================
+//   Protection — Category & Channel Permission Lock
+// =======================================
+
+// لما تتغير صلاحيات كاتيقوري مقفلة
+client.on(Events.ChannelUpdate, async (oldChannel, newChannel) => {
+  if (!PROTECTION.serverSettings) return;
+  const locked = whitelist.lockedCategories || [];
+
+  // هل الروم نفسه كاتيقوري مقفل؟
+  const isCatLocked = locked.includes(newChannel.id);
+  // هل الروم داخل كاتيقوري مقفل؟
+  const isInLocked  = newChannel.parentId && locked.includes(newChannel.parentId);
+
+  if (!isCatLocked && !isInLocked) return;
+
+  // هل تغيرت الصلاحيات؟
+  const oldPerms = oldChannel.permissionOverwrites.cache;
+  const newPerms = newChannel.permissionOverwrites.cache;
+  const changed  = oldPerms.size !== newPerms.size ||
+    newPerms.some((ow, id) => {
+      const old = oldPerms.get(id);
+      return !old || old.allow.bitfield !== ow.allow.bitfield || old.deny.bitfield !== ow.deny.bitfield;
+    });
+  if (!changed) return;
+
+  const entry = await getAuditEntry(newChannel.guild, AuditLogEvent.ChannelOverwriteUpdate);
+  if (!entry) return;
+  const executor = entry.executor;
+  if (!executor || executor.id === client.user.id) return;
+
+  const roles = await getMemberRoles(newChannel.guild, executor.id);
+  if (isWhitelisted(executor.id, roles)) return; // فول وايت ليست مسموح
+
+  const where = isCatLocked
+    ? `كاتيقوري مقفل **${newChannel.name}**`
+    : `روم **${newChannel.name}** داخل كاتيقوري مقفل`;
+
+  await sendLog({
+    type: 'serverEdit',
+    executor: `<@${executor.id}>`,
+    violation: `غيّر صلاحيات ${where}`,
+    punishment: '🔨 بان + استعادة الصلاحيات',
+    color: COLORS.danger,
+  });
+
+  // استعادة الصلاحيات
+  try {
+    const overwrites = oldChannel.permissionOverwrites.cache.map(ow => ({
+      id: ow.id, allow: ow.allow, deny: ow.deny, type: ow.type,
+    }));
+    await newChannel.permissionOverwrites.set(overwrites);
+  } catch {}
+
+  await punish(newChannel.guild, executor.id, 'Changed permissions of locked category/channel');
 });
 
 // =======================================
