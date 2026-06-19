@@ -31,22 +31,21 @@ const LOG_CHANNEL_ID = '1513261574012407858';
 // ======= بوتات الطرف الثالث =======
 // أضف ID البرو بوت هنا — لما يعطي رتبة نبحث عن الشخص الحقيقي بالاسم من الـ reason
 const PROXY_BOTS = [
-  '282859044593598464'
   // '123456789012345678', // Pro Bot ID
 ];
 
 const roomConfigs = [
-  { channelId: '1160272271806574753', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1160271731810906152', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1409582649487659152', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1465885721083777034', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1401133375015747706', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1461763814146965688', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1464024227761098896', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1461764244646268958', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1461764456634646538', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1507029588109168822', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
-  { channelId: '1489362661543121078', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1160272271806574753', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1160271731810906152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1409582649487659152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1465885721083777034', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1401133375015747706', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1461763814146965688', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1464024227761098896', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1461764244646268958', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1461764456634646538', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1507029588109168822', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1489362661543121078', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', every: 2, webhookName: 'Ez shadow' },
 ];
 
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true, botRoleProtect: true };
@@ -70,9 +69,9 @@ function loadWhitelist() {
   try {
     const data = JSON.parse(fs.readFileSync(WL_FILE, 'utf8'));
     if (Array.isArray(data)) return { users: data, roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
-    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], ...data };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [], ...data };
   } catch {
-    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [] };
   }
 }
 function saveWhitelist() { fs.writeFileSync(WL_FILE, JSON.stringify(whitelist, null, 2)); }
@@ -309,6 +308,16 @@ async function registerCommands() {
     new SlashCommandBuilder().setName('restart').setDescription('Restart the bot process').toJSON(),
 
     new SlashCommandBuilder()
+      .setName('rolelock')
+      .setDescription('Manage locked roles — only full whitelisted users can assign them')
+      .addSubcommand(s => s.setName('add').setDescription('Lock a role')
+        .addRoleOption(o => o.setName('role').setDescription('Role to lock').setRequired(true)))
+      .addSubcommand(s => s.setName('remove').setDescription('Unlock a role')
+        .addRoleOption(o => o.setName('role').setDescription('Role to unlock').setRequired(true)))
+      .addSubcommand(s => s.setName('list').setDescription('View all locked roles'))
+      .toJSON(),
+
+    new SlashCommandBuilder()
       .setName('logs').setDescription('Show recent protection events')
       .addIntegerOption(o => o.setName('count').setDescription('Number of events (default 10, max 30)').setMinValue(1).setMaxValue(30))
       .toJSON(),
@@ -366,6 +375,38 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (memberRoleCooldown.has(newMember.id)) return;
 
   const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
+
+  // ======= حماية الرتب المقفلة =======
+  const lockedRoleAdded = addedRoles.find(r => (whitelist.lockedRoles || []).includes(r.id));
+  if (lockedRoleAdded) {
+    const entryLocked = await getAuditEntry(newMember.guild, AuditLogEvent.MemberRoleUpdate, newMember.id);
+    if (entryLocked) {
+      const execLocked = entryLocked.executor;
+      if (execLocked && execLocked.id !== client.user.id) {
+        // تحقق من الـ proxy بوت
+        let realExecId = execLocked.id;
+        if (execLocked.bot && PROXY_BOTS.includes(execLocked.id)) {
+          const foundId = await extractRealExecutorFromReason(entryLocked.reason, newMember.guild);
+          if (foundId) realExecId = foundId;
+        }
+        const execRoles = await getMemberRoles(newMember.guild, realExecId);
+        // فقط الفول وايت ليست يقدر يعطي هالرتبة
+        if (!isWhitelisted(realExecId, execRoles)) {
+          await sendLog({
+            type: 'adminRole',
+            executor: `<@${realExecId}>`,
+            violation: `حاول يعطي رتبة مقفلة **${lockedRoleAdded.name}** لـ <@${newMember.id}>`,
+            punishment: '🔨 بان + سحب الرتبة',
+            color: COLORS.danger,
+          });
+          try { await newMember.roles.remove(lockedRoleAdded); } catch {}
+          await punish(newMember.guild, realExecId, `Gave locked role ${lockedRoleAdded.name}`);
+          return;
+        }
+      }
+    }
+  }
+
   const dangerRole = addedRoles.find(r => r.permissions.has(PermissionsBitField.Flags.Administrator));
   if (!dangerRole) return;
 
@@ -702,6 +743,40 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (massban != null) { LIMITS.massbanCount   = massban; changes.push(`Mass Ban: \`${massban}/${LIMITS.massbanWindow/1000}s\``); }
       if (!changes.length) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: '> No values provided.' })] });
       return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '✅ Limits Updated', description: `> ${changes.join(' — ')}` })] });
+    }
+  }
+
+  // ===================== /rolelock =====================
+  if (interaction.commandName === 'rolelock') {
+    if (!await ownerOnly()) return;
+    const sub  = interaction.options.getSubcommand();
+    const role = interaction.options.getRole('role');
+
+    if (sub === 'add') {
+      if (!whitelist.lockedRoles) whitelist.lockedRoles = [];
+      if (whitelist.lockedRoles.includes(role.id))
+        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> <@&${role.id}> مقفلة مسبقاً.` })] });
+      whitelist.lockedRoles.push(role.id);
+      saveWhitelist();
+      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `قفل رتبة <@&${role.id}>`, punishment: 'فقط الفول وايت ليست يقدرون يعطونها', color: COLORS.warn });
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> <@&${role.id}> الحين مقفلة — ما يقدر يعطيها إلا الفول وايت ليست.` })] });
+    }
+
+    if (sub === 'remove') {
+      if (!whitelist.lockedRoles || !whitelist.lockedRoles.includes(role.id))
+        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> <@&${role.id}> مو مقفلة.` })] });
+      whitelist.lockedRoles = whitelist.lockedRoles.filter(id => id !== role.id);
+      saveWhitelist();
+      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `فك قفل رتبة <@&${role.id}>`, punishment: '—', color: COLORS.success });
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> <@&${role.id}> الحين غير مقفلة.` })] });
+    }
+
+    if (sub === 'list') {
+      const locked = whitelist.lockedRoles || [];
+      const desc = locked.length
+        ? locked.map(id => `> <@&${id}>`).join('\n')
+        : '> *لا يوجد رتب مقفلة*';
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '🔒 الرتب المقفلة', description: desc })] });
     }
   }
 
