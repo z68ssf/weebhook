@@ -23,7 +23,7 @@ http.createServer((req, res) => { res.writeHead(200); res.end('Bot is running �
 });
 
 // أضف أي أونر إضافي هنا
-const BOT_OWNER_IDS  = ['1224722940701048927','710530455908384829','1242554088818999440'];
+const BOT_OWNER_IDS  = ['1224722940701048927'];
 const BOT_TOKEN      = process.env.BOT_TOKEN || 'MTUxMTUwOTk2MDMzNTQyNTYyNg.GPAvb7.3LM1mxx2hnPLd3H-Gv3axhPS39w6Rv6zBYGUAw';
 const CLIENT_ID      = '1511509960335425626';
 const LOG_CHANNEL_ID = '1513261574012407858';
@@ -31,10 +31,22 @@ const LOG_CHANNEL_ID = '1513261574012407858';
 // ======= بوتات الطرف الثالث =======
 // أضف ID البرو بوت هنا — لما يعطي رتبة نبحث عن الشخص الحقيقي بالاسم من الـ reason
 const PROXY_BOTS = [ '282859044593598464'
-  // '282859044593598464', // Pro Bot ID
-                    ];
+  // '123456789012345678', // Pro Bot ID
+];
 
-
+const roomConfigs = [
+  { channelId: '1160272271806574753', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1160271731810906152', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1409582649487659152', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1465885721083777034', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1401133375015747706', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1461763814146965688', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1464024227761098896', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1461764244646268958', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1461764456634646538', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1507029588109168822', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+  { channelId: '1489362661543121078', message: '🔥** 3 الاف روبوكس مجاني** <#1514941171951206441>', delayMs: 3600000, webhookName: 'Ez shadow' },
+];
 
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true, botRoleProtect: true };
 const LIMITS     = { bans: 10, channelDeletes: 2, roleDeletes: 2, massbanWindow: 10000, massbanCount: 5 };
@@ -425,7 +437,7 @@ client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
   if (!executor || executor.id === client.user.id) return;
   const roles = await getMemberRoles(newRole.guild, executor.id);
   if (isWhitelisted(executor.id, roles)) return;
-  await sendLog({ type: 'botRoleMod', executor: `<@${executor.id}>`, violation: `Tried to modify bot's role **${newRole.name}** permissions`, punishment: ' بان فوري + استعادة الصلاحيات', color: COLORS.danger });
+  await sendLog({ type: 'botRoleMod', executor: `<@${executor.id}>`, violation: `Tried to modify bot's role **${newRole.name}** permissions`, punishment: '🔨 بان فوري + استعادة الصلاحيات', color: COLORS.danger });
   try { await newRole.setPermissions(oldRole.permissions); } catch {}
   await punish(newRole.guild, executor.id, 'Modified bot role permissions');
 });
@@ -549,11 +561,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const count = interaction.options.getInteger('count') || 10;
     try {
       if (!fs.existsSync(EVENTS_LOG_FILE)) {
-        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: ' Logs', description: '> لا يوجد سجل أحداث بعد.' })] });
+        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: '📋 Logs', description: '> لا يوجد سجل أحداث بعد.' })] });
       }
       const raw   = fs.readFileSync(EVENTS_LOG_FILE, 'utf8').trim().split('\n').filter(Boolean);
       const lines = raw.slice(-count).reverse();
-      if (!lines.length) return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: ' Logs', description: '> السجل فارغ.' })] });
+      if (!lines.length) return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: '📋 Logs', description: '> السجل فارغ.' })] });
 
       const formatted = lines.map((l, i) => {
         const match = l.match(/^\[(.+?)\] \[(.+?)\] executor=(.+?) \| violation=(.+?) \| punishment=(.+)$/);
@@ -569,7 +581,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       if (cur) chunks.push(cur);
 
-      return interaction.editReply({ embeds: chunks.map((c, i) => replyEmbed({ color: COLORS.info, title: i === 0 ? ` آخر ${lines.length} أحداث` : '​', description: c })) });
+      return interaction.editReply({ embeds: chunks.map((c, i) => replyEmbed({ color: COLORS.info, title: i === 0 ? `📋 آخر ${lines.length} أحداث` : '​', description: c })) });
     } catch (err) {
       return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.danger, title: '❌ Error', description: `> ${err.message}` })] });
     }
@@ -594,13 +606,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         totalEvents = fs.readFileSync(EVENTS_LOG_FILE, 'utf8').trim().split('\n').filter(Boolean).length;
     } catch {}
 
-    return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: 'ش إحصائيات اليوم', description: [
-      `**التاريخ:** \`${today}\``, '',
-      `**بانات اليوم:** \`${totalBans}\``,
-      `**طرد اليوم:** \`${totalKicks}\``,
-      `**حذف روم:** \`${totalChannelDel}\``,
-      `**ذ حذف رتبة:** \`${totalRoleDel}\``, '',
-      `** إجمالي الأحداث المسجلة:** \`${totalEvents}\``,
+    return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '📊 إحصائيات اليوم', description: [
+      `**📅 التاريخ:** \`${today}\``, '',
+      `**🔨 بانات اليوم:** \`${totalBans}\``,
+      `**👢 طرد اليوم:** \`${totalKicks}\``,
+      `**🗑️ حذف روم:** \`${totalChannelDel}\``,
+      `**🗑️ حذف رتبة:** \`${totalRoleDel}\``, '',
+      `**📋 إجمالي الأحداث المسجلة:** \`${totalEvents}\``,
     ].join('\n') })] });
   }
 
@@ -802,7 +814,7 @@ function startChannelTimer(channelId) {
 client.once(Events.ClientReady, async () => {
   const presences = [
     { name: '𝒃𝒚 𝒛𝒘𝒉.', type: 0 },
-    { name: 'discord.gg/ez1 ', type: 3 },
+    { name: 'Ez shadow ', type: 3 },
     { name: 'hello', type: 3 },
     { name: '𝒃𝒚 𝒛𝒘𝒉.', type: 2 },
   ];
