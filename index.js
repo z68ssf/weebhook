@@ -30,23 +30,11 @@ const LOG_CHANNEL_ID = '1513261574012407858';
 
 // ======= بوتات الطرف الثالث =======
 // أضف ID البرو بوت هنا — لما يعطي رتبة نبحث عن الشخص الحقيقي بالاسم من الـ reason
-const PROXY_BOTS = [
-  // '123456789012345678', // Pro Bot ID
-];
+const PROXY_BOTS = [ '282859044593598464'
+  // '282859044593598464', // Pro Bot ID
+                    ];
 
-const roomConfigs = [
-  { channelId: '1160272271806574753', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1160271731810906152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1409582649487659152', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1465885721083777034', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1401133375015747706', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1461763814146965688', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1464024227761098896', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1461764244646268958', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1461764456634646538', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1507029588109168822', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-  { channelId: '1489362661543121078', message: '🔥** 3 الاف روبوكس مجاني** <#1513236872153792682>', delayMs: 60000, webhookName: 'Ez shadow' },
-];
+
 
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true, botRoleProtect: true };
 const LIMITS     = { bans: 10, channelDeletes: 2, roleDeletes: 2, massbanWindow: 10000, massbanCount: 5 };
