@@ -30,7 +30,7 @@ const LOG_CHANNEL_ID = '1513261574012407858';
 
 // ======= بوتات الطرف الثالث =======
 // أضف ID البرو بوت هنا — لما يعطي رتبة نبحث عن الشخص الحقيقي بالاسم من الـ reason
-const PROXY_BOTS = [
+const PROXY_BOTS = [ '282859044593598464'
   // '123456789012345678', // Pro Bot ID
 ];
 
@@ -64,18 +64,35 @@ function getRandLogEmoji() {
 }
 
 // ======= Advanced Whitelist =======
-const WL_FILE = './whitelist.json';
+const WL_FILE       = './whitelist.json';
+const ROLELOCK_FILE = './rolelock.json';
+const CATLOCK_FILE  = './categorylock.json';
+
 function loadWhitelist() {
   try {
     const data = JSON.parse(fs.readFileSync(WL_FILE, 'utf8'));
     if (Array.isArray(data)) return { users: data, roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
-    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [], lockedCategories: [], ...data };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], ...data };
   } catch {
-    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [], lockedRoles: [], lockedCategories: [] };
+    return { users: [], roles: [], channelDel: [], bots: [], webhookCreate: [], ban: [], addBots: [] };
   }
 }
 function saveWhitelist() { fs.writeFileSync(WL_FILE, JSON.stringify(whitelist, null, 2)); }
 let whitelist = loadWhitelist();
+
+// ======= Rolelock =======
+function loadRolelock() {
+  try { return JSON.parse(fs.readFileSync(ROLELOCK_FILE, 'utf8')); } catch { return []; }
+}
+function saveRolelock() { fs.writeFileSync(ROLELOCK_FILE, JSON.stringify(lockedRoles, null, 2)); }
+let lockedRoles = loadRolelock();
+
+// ======= Categorylock =======
+function loadCatlock() {
+  try { return JSON.parse(fs.readFileSync(CATLOCK_FILE, 'utf8')); } catch { return []; }
+}
+function saveCatlock() { fs.writeFileSync(CATLOCK_FILE, JSON.stringify(lockedCategories, null, 2)); }
+let lockedCategories = loadCatlock();
 
 function isWhitelisted(userId, memberRoles = []) {
   if (BOT_OWNER_IDS.includes(userId)) return true;
@@ -380,6 +397,8 @@ client.on(Events.GuildUpdate, async (oldGuild, newGuild) => {
 });
 
 const memberRoleCooldown = new Set();
+// عداد تحذيرات الرتب المقفلة { userId: count }
+const lockedRoleWarns = {};
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (!PROTECTION.serverSettings) return;
   if (memberRoleCooldown.has(newMember.id)) return;
@@ -387,30 +406,56 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
 
   // ======= حماية الرتب المقفلة =======
-  const lockedRoleAdded = addedRoles.find(r => (whitelist.lockedRoles || []).includes(r.id));
+  const lockedRoleAdded = addedRoles.find(r => (lockedRoles).includes(r.id));
   if (lockedRoleAdded) {
     const entryLocked = await getAuditEntry(newMember.guild, AuditLogEvent.MemberRoleUpdate, newMember.id);
     if (entryLocked) {
       const execLocked = entryLocked.executor;
       if (execLocked && execLocked.id !== client.user.id) {
-        // تحقق من الـ proxy بوت
+
+        // تتبع البرو بوت — نبحث عن الشخص الحقيقي
         let realExecId = execLocked.id;
         if (execLocked.bot && PROXY_BOTS.includes(execLocked.id)) {
           const foundId = await extractRealExecutorFromReason(entryLocked.reason, newMember.guild);
           if (foundId) realExecId = foundId;
         }
+
         const execRoles = await getMemberRoles(newMember.guild, realExecId);
-        // فقط الفول وايت ليست يقدر يعطي هالرتبة
         if (!isWhitelisted(realExecId, execRoles)) {
+
+          // سحب الرتبة فوراً
+          try { await newMember.roles.remove(lockedRoleAdded); } catch {}
+
+          // عداد التحذيرات
+          if (!lockedRoleWarns[realExecId]) lockedRoleWarns[realExecId] = 0;
+          lockedRoleWarns[realExecId]++;
+          const warnCount = lockedRoleWarns[realExecId];
+
+          // رسالة الخاص — عدّل النص من WARN_DM_MESSAGE أعلى الكود
+          try {
+            const realMember = await newMember.guild.members.fetch(realExecId);
+            await realMember.send(
+              `⚠️ **تحذير من نظام الحماية**\n` +
+              `حاولت تعطي رتبة مقفلة **${lockedRoleAdded.name}** لـ <@${newMember.id}>\n` +
+              `هذه الرتبة محمية ولا يحق لك إعطاؤها.\n` +
+              `**عدد التحذيرات:** ${warnCount}/3 — عند الوصول لـ 3 ستُطرد من السيرفر.`
+            );
+          } catch {}
+
+          // لوق
           await sendLog({
             type: 'adminRole',
             executor: `<@${realExecId}>`,
             violation: `حاول يعطي رتبة مقفلة **${lockedRoleAdded.name}** لـ <@${newMember.id}>`,
-            punishment: '🔨 بان + سحب الرتبة',
-            color: COLORS.danger,
+            punishment: warnCount >= 3 ? '👢 طرد (3 تحذيرات)' : `⚠️ تحذير ${warnCount}/3 + سحب الرتبة`,
+            color: warnCount >= 3 ? COLORS.danger : COLORS.warn,
           });
-          try { await newMember.roles.remove(lockedRoleAdded); } catch {}
-          await punish(newMember.guild, realExecId, `Gave locked role ${lockedRoleAdded.name}`);
+
+          // لو وصل 3 تحذيرات يتطرد
+          if (warnCount >= 3) {
+            lockedRoleWarns[realExecId] = 0;
+            await kick(newMember.guild, realExecId, `تجاوز 3 تحذيرات على الرتب المقفلة`);
+          }
           return;
         }
       }
@@ -498,6 +543,30 @@ client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
 //   Protection 2 — Anti-Raid
 // =======================================
 client.on(Events.ChannelDelete, async (channel) => {
+  // حماية الكاتيقوريات المقفلة — منع حذف رومات داخلها حتى لو antiRaid معطل
+  if (channel.guild) {
+    const lockedCats = lockedCategories;
+    const isInLockedCat = channel.parentId && lockedCats.includes(channel.parentId);
+    const isSelf = lockedCats.includes(channel.id);
+    if (isInLockedCat || isSelf) {
+      const executor = await getAuditUser(channel.guild, AuditLogEvent.ChannelDelete, channel.id);
+      if (executor && executor.id !== client.user.id) {
+        const roles = await getMemberRoles(channel.guild, executor.id);
+        if (!isWhitelisted(executor.id, roles)) {
+          await sendLog({
+            type: 'channelDel',
+            executor: `<@${executor.id}>`,
+            violation: `حذف ${isSelf ? 'كاتيقوري مقفل' : 'روم داخل كاتيقوري مقفل'} **${channel.name}**`,
+            punishment: '🔨 بان فوري',
+            color: COLORS.danger,
+          });
+          await punish(channel.guild, executor.id, `Deleted locked category/channel: ${channel.name}`);
+          return;
+        }
+      }
+    }
+  }
+
   if (!PROTECTION.antiRaid || !channel.guild) return;
   const executor = await getAuditUser(channel.guild, AuditLogEvent.ChannelDelete, channel.id);
   if (!executor) return;
@@ -754,26 +823,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const role = interaction.options.getRole('role');
 
     if (sub === 'add') {
-      if (!whitelist.lockedRoles) whitelist.lockedRoles = [];
-      if (whitelist.lockedRoles.includes(role.id))
+      if (lockedRoles.includes(role.id))
         return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> <@&${role.id}> مقفلة مسبقاً.` })] });
-      whitelist.lockedRoles.push(role.id);
-      saveWhitelist();
+      lockedRoles.push(role.id);
+      saveRolelock();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `قفل رتبة <@&${role.id}>`, punishment: 'فقط الفول وايت ليست يقدرون يعطونها', color: COLORS.warn });
       return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> <@&${role.id}> الحين مقفلة — ما يقدر يعطيها إلا الفول وايت ليست.` })] });
     }
 
     if (sub === 'remove') {
-      if (!whitelist.lockedRoles || !whitelist.lockedRoles.includes(role.id))
+      if (!lockedRoles.includes(role.id))
         return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> <@&${role.id}> مو مقفلة.` })] });
-      whitelist.lockedRoles = whitelist.lockedRoles.filter(id => id !== role.id);
-      saveWhitelist();
+      lockedRoles = lockedRoles.filter(id => id !== role.id);
+      saveRolelock();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `فك قفل رتبة <@&${role.id}>`, punishment: '—', color: COLORS.success });
       return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> <@&${role.id}> الحين غير مقفلة.` })] });
     }
 
     if (sub === 'list') {
-      const locked = whitelist.lockedRoles || [];
+
       const desc = locked.length
         ? locked.map(id => `> <@&${id}>`).join('\n')
         : '> *لا يوجد رتب مقفلة*';
@@ -788,26 +856,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const category = interaction.options.getChannel('category');
 
     if (sub === 'add') {
-      if (!whitelist.lockedCategories) whitelist.lockedCategories = [];
-      if (whitelist.lockedCategories.includes(category.id))
+      if (lockedCategories.includes(category.id))
         return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> **${category.name}** مقفلة مسبقاً.` })] });
-      whitelist.lockedCategories.push(category.id);
-      saveWhitelist();
+      lockedCategories.push(category.id);
+      saveCatlock();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `قفل كاتيقوري **${category.name}**`, punishment: 'فقط الفول وايت ليست يقدرون يغيرون صلاحياتها', color: COLORS.warn });
       return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> **${category.name}** مقفلة — أي تغيير في صلاحياتها أو رومات داخلها يتصدى له فوراً.` })] });
     }
 
     if (sub === 'remove') {
-      if (!whitelist.lockedCategories || !whitelist.lockedCategories.includes(category.id))
+      if (!lockedCategories.includes(category.id))
         return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> **${category.name}** مو مقفلة.` })] });
-      whitelist.lockedCategories = whitelist.lockedCategories.filter(id => id !== category.id);
-      saveWhitelist();
+      lockedCategories = lockedCategories.filter(id => id !== category.id);
+      saveCatlock();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `فك قفل كاتيقوري **${category.name}**`, punishment: '—', color: COLORS.success });
       return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> **${category.name}** الحين غير مقفلة.` })] });
     }
 
     if (sub === 'list') {
-      const locked = whitelist.lockedCategories || [];
+
       const desc = locked.length
         ? locked.map(id => `> <#${id}>`).join('\n')
         : '> *لا يوجد كاتيقوريات مقفلة*';
@@ -928,7 +995,7 @@ client.on(Events.MessageCreate, async (msg) => {
 // لما تتغير صلاحيات كاتيقوري مقفلة
 client.on(Events.ChannelUpdate, async (oldChannel, newChannel) => {
   if (!PROTECTION.serverSettings) return;
-  const locked = whitelist.lockedCategories || [];
+  const locked = lockedCategories;
 
   // هل الروم نفسه كاتيقوري مقفل؟
   const isCatLocked = locked.includes(newChannel.id);
