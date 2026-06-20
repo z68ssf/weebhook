@@ -66,7 +66,6 @@ function getRandLogEmoji() {
 // ======= Advanced Whitelist =======
 const WL_FILE       = './whitelist.json';
 const ROLELOCK_FILE = './rolelock.json';
-const CATLOCK_FILE  = './categorylock.json';
 
 function loadWhitelist() {
   try {
@@ -87,12 +86,6 @@ function loadRolelock() {
 function saveRolelock() { fs.writeFileSync(ROLELOCK_FILE, JSON.stringify(lockedRoles, null, 2)); }
 let lockedRoles = loadRolelock();
 
-// ======= Categorylock =======
-function loadCatlock() {
-  try { return JSON.parse(fs.readFileSync(CATLOCK_FILE, 'utf8')); } catch { return []; }
-}
-function saveCatlock() { fs.writeFileSync(CATLOCK_FILE, JSON.stringify(lockedCategories, null, 2)); }
-let lockedCategories = loadCatlock();
 
 function isWhitelisted(userId, memberRoles = []) {
   if (BOT_OWNER_IDS.includes(userId)) return true;
@@ -334,15 +327,6 @@ async function registerCommands() {
       .addSubcommand(s => s.setName('list').setDescription('View all locked roles'))
       .toJSON(),
 
-    new SlashCommandBuilder()
-      .setName('catlock')
-      .setDescription('Lock a category — only full whitelisted can change permissions')
-      .addSubcommand(s => s.setName('add').setDescription('Lock a category')
-        .addChannelOption(o => o.setName('category').setDescription('Category to lock').setRequired(true)))
-      .addSubcommand(s => s.setName('remove').setDescription('Unlock a category')
-        .addChannelOption(o => o.setName('category').setDescription('Category to unlock').setRequired(true)))
-      .addSubcommand(s => s.setName('list').setDescription('View all locked categories'))
-      .toJSON(),
 
     new SlashCommandBuilder()
       .setName('logs').setDescription('Show recent protection events')
@@ -543,30 +527,6 @@ client.on(Events.GuildRoleUpdate, async (oldRole, newRole) => {
 //   Protection 2 — Anti-Raid
 // =======================================
 client.on(Events.ChannelDelete, async (channel) => {
-  // حماية الكاتيقوريات المقفلة — منع حذف رومات داخلها حتى لو antiRaid معطل
-  if (channel.guild) {
-    const lockedCats = lockedCategories;
-    const isInLockedCat = channel.parentId && lockedCats.includes(channel.parentId);
-    const isSelf = lockedCats.includes(channel.id);
-    if (isInLockedCat || isSelf) {
-      const executor = await getAuditUser(channel.guild, AuditLogEvent.ChannelDelete, channel.id);
-      if (executor && executor.id !== client.user.id) {
-        const roles = await getMemberRoles(channel.guild, executor.id);
-        if (!isWhitelisted(executor.id, roles)) {
-          await sendLog({
-            type: 'channelDel',
-            executor: `<@${executor.id}>`,
-            violation: `حذف ${isSelf ? 'كاتيقوري مقفل' : 'روم داخل كاتيقوري مقفل'} **${channel.name}**`,
-            punishment: '🔨 بان فوري',
-            color: COLORS.danger,
-          });
-          await punish(channel.guild, executor.id, `Deleted locked category/channel: ${channel.name}`);
-          return;
-        }
-      }
-    }
-  }
-
   if (!PROTECTION.antiRaid || !channel.guild) return;
   const executor = await getAuditUser(channel.guild, AuditLogEvent.ChannelDelete, channel.id);
   if (!executor) return;
@@ -849,39 +809,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  // ===================== /catlock =====================
-  if (interaction.commandName === 'catlock') {
-    if (!await ownerOnly()) return;
-    const sub      = interaction.options.getSubcommand();
-    const category = interaction.options.getChannel('category');
-
-    if (sub === 'add') {
-      if (lockedCategories.includes(category.id))
-        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> **${category.name}** مقفلة مسبقاً.` })] });
-      lockedCategories.push(category.id);
-      saveCatlock();
-      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `قفل كاتيقوري **${category.name}**`, punishment: 'فقط الفول وايت ليست يقدرون يغيرون صلاحياتها', color: COLORS.warn });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> **${category.name}** مقفلة — أي تغيير في صلاحياتها أو رومات داخلها يتصدى له فوراً.` })] });
-    }
-
-    if (sub === 'remove') {
-      if (!lockedCategories.includes(category.id))
-        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> **${category.name}** مو مقفلة.` })] });
-      lockedCategories = lockedCategories.filter(id => id !== category.id);
-      saveCatlock();
-      await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `فك قفل كاتيقوري **${category.name}**`, punishment: '—', color: COLORS.success });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> **${category.name}** الحين غير مقفلة.` })] });
-    }
-
-    if (sub === 'list') {
-
-      const desc = locked.length
-        ? locked.map(id => `> <#${id}>`).join('\n')
-        : '> *لا يوجد كاتيقوريات مقفلة*';
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '🔒 الكاتيقوريات المقفلة', description: desc })] });
-    }
-  }
-
   // ===================== /whitelist =====================
   if (interaction.commandName === 'whitelist') {
     if (!await ownerOnly()) return;
@@ -988,30 +915,6 @@ client.on(Events.MessageCreate, async (msg) => {
 });
 
 
-// =======================================
-//   Protection — Category & Channel Permission Lock
-// =======================================
-
-// لما تتغير صلاحيات كاتيقوري مقفلة
-client.on(Events.ChannelUpdate, async (oldChannel, newChannel) => {
-  if (!PROTECTION.serverSettings) return;
-  const locked = lockedCategories;
-
-  // هل الروم نفسه كاتيقوري مقفل؟
-  const isCatLocked = locked.includes(newChannel.id);
-  // هل الروم داخل كاتيقوري مقفل؟
-  const isInLocked  = newChannel.parentId && locked.includes(newChannel.parentId);
-
-  if (!isCatLocked && !isInLocked) return;
-
-  // هل تغيرت الصلاحيات؟
-  const oldPerms = oldChannel.permissionOverwrites.cache;
-  const newPerms = newChannel.permissionOverwrites.cache;
-  const changed  = oldPerms.size !== newPerms.size ||
-    newPerms.some((ow, id) => {
-      const old = oldPerms.get(id);
-      return !old || old.allow.bitfield !== ow.allow.bitfield || old.deny.bitfield !== ow.deny.bitfield;
-    });
   if (!changed) return;
 
   const entry = await getAuditEntry(newChannel.guild, AuditLogEvent.ChannelOverwriteUpdate);
