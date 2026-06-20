@@ -521,8 +521,7 @@ client.on(Events.GuildRoleDelete, async (role) => {
   if (over) await punish(role.guild, executor.id, `Exceeded role delete limit (${LIMITS.roleDeletes}/day)`);
 });
 
-// ======= Anti-Mass Ban =======
-const recentBans = {};
+// ======= Anti-Ban — أي بان يتبان الشخص فوراً =======
 client.on(Events.GuildAuditLogEntryCreate, async (entry, guild) => {
   if (!PROTECTION.antiRaid) return;
   if (entry.action !== AuditLogEvent.MemberBanAdd) return;
@@ -531,24 +530,16 @@ client.on(Events.GuildAuditLogEntryCreate, async (entry, guild) => {
   const roles = await getMemberRoles(guild, executor.id);
   if (hasSpecificWL(executor.id, roles, 'ban')) return;
 
-  const now = Date.now();
-  const dailyCount = incrementCount(executor.id, 'bans');
+  incrementCount(executor.id, 'bans');
 
-  if (!recentBans[executor.id]) recentBans[executor.id] = [];
-  recentBans[executor.id].push(now);
-  recentBans[executor.id] = recentBans[executor.id].filter(t => now - t <= LIMITS.massbanWindow);
-  const recentCount = recentBans[executor.id].length;
-
-  if (recentCount >= LIMITS.massbanCount) {
-    await sendLog({ type: 'massban', executor: `<@${executor.id}>`, violation: `Mass ban — ${recentCount} bans in ${LIMITS.massbanWindow / 1000}s`, punishment: '🔨 بان فوري', color: COLORS.danger });
-    recentBans[executor.id] = [];
-    await punish(guild, executor.id, `Mass ban (${recentCount} in ${LIMITS.massbanWindow / 1000}s)`);
-    return;
-  }
-
-  const over = dailyCount >= LIMITS.bans;
-  await sendLog({ type: 'ban', executor: `<@${executor.id}>`, violation: `Banned <@${entry.target?.id}> — ${dailyCount}/${LIMITS.bans}`, punishment: over ? '👢 طرد' : `⚠️ تحذير — ${LIMITS.bans - dailyCount} متبقية`, color: COLORS.warn });
-  if (over) await kick(guild, executor.id, `Exceeded daily ban limit (${LIMITS.bans}/day)`);
+  await sendLog({
+    type: 'ban',
+    executor: `<@${executor.id}>`,
+    violation: `بان <@${entry.target?.id}> بدون صلاحية`,
+    punishment: '🔨 بان فوري',
+    color: COLORS.danger,
+  });
+  await punish(guild, executor.id, 'Banned a member without permission');
 });
 
 // =======================================
