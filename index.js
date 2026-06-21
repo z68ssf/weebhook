@@ -421,15 +421,18 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 
  
           // رسالة الخاص — عدّل النص من WARN_DM_MESSAGE أعلى الكود
-          try {
-            const realMember = await newMember.guild.members.fetch(realExecId);
-            await realMember.send(
-              `⚠️ **بطل واسطات**\n` 
-              `**لا تعطي رتب بدون اذن مره ثانيه**`\n`${lockedRoleAdded.name} لـ <@${newMember.id}>\n**` +
-              `**هذه الرتبة ما عندك صلاحيه ولا يحق لك إعطاؤها.**\n` +
-              `**عدد التحذيرات:** ${warnCount}/3 — عند الوصول لـ 3 ستُطرد من السيرفر.**`
-            );
-          } catch {}
+try {
+  const realMember = await newMember.guild.members.fetch(realExecId);
+
+  await realMember.send(
+    `⚠️ **بطل واسطات**
+**لا تعطي رتب بدون اذن مره ثانيه**
+${lockedRoleAdded.name} لـ <@${newMember.id}>
+**هذه الرتبة ما عندك صلاحيه ولا يحق لك إعطاؤها.**
+**عدد التحذيرات:** ${warnCount}/3 — عند الوصول لـ 3 ستُطرد من السيرفر.**`
+  );
+
+} catch {}
 
           // لوق
           await sendLog({
