@@ -23,7 +23,7 @@ http.createServer((req, res) => { res.writeHead(200); res.end('Bot is running �
 });
 
 // أضف أي أونر إضافي هنا
-const BOT_OWNER_IDS  = ['1224722940701048927'];
+const BOT_OWNER_IDS  = ['1224722940701048927','1242554088818999440'];
 const BOT_TOKEN      = process.env.BOT_TOKEN || 'MTUxMTUwOTk2MDMzNTQyNTYyNg.GPAvb7.3LM1mxx2hnPLd3H-Gv3axhPS39w6Rv6zBYGUAw';
 const CLIENT_ID      = '1511509960335425626';
 const LOG_CHANNEL_ID = '1513261574012407858';
@@ -49,7 +49,7 @@ const roomConfigs = [
 ];
 
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true, botRoleProtect: true };
-const LIMITS     = { bans: 10, channelDeletes: 2, roleDeletes: 2, massbanWindow: 10000, massbanCount: 5 };
+const LIMITS     = { bans: 10, channelDeletes: 2, roleDeletes: 2, massbanWindow: 10000, massbanCount: 5, channelCreateWindow: 10000, channelCreateCount: 3, mentionWindow: 10000, mentionCount: 3 };
 
 // ======= الإيموجيات =======
 const LOG_EMOJIS = [
@@ -306,13 +306,17 @@ async function registerCommands() {
           { name: 'Anti-Raid',               value: 'antiRaid' },
           { name: 'Anti-Bots',               value: 'antiBots' },
           { name: 'Bot Role Protect',         value: 'botRoleProtect' },
+          { name: 'Anti Channel Spam',           value: 'antiRaid' },
+          { name: 'Anti Mass Mention',           value: 'antiRaid' },
         ))
         .addBooleanOption(o => o.setName('enabled').setDescription('Enable or disable').setRequired(true)))
       .addSubcommand(s => s.setName('limits').setDescription('Edit daily action limits')
         .addIntegerOption(o => o.setName('bans').setDescription('Daily ban limit').setMinValue(1))
         .addIntegerOption(o => o.setName('channels').setDescription('Channel delete limit').setMinValue(1))
         .addIntegerOption(o => o.setName('roles').setDescription('Role delete limit').setMinValue(1))
-        .addIntegerOption(o => o.setName('massban').setDescription('Mass ban count trigger (per 10s)').setMinValue(2)))
+        .addIntegerOption(o => o.setName('massban').setDescription('Mass ban count trigger (per 10s)').setMinValue(2))
+        .addIntegerOption(o => o.setName('channelspam').setDescription('Channel create spam trigger (per 10s)').setMinValue(2))
+        .addIntegerOption(o => o.setName('mention').setDescription('Mass mention trigger (per 10s)').setMinValue(2)))
       .toJSON(),
 
     new SlashCommandBuilder().setName('restart').setDescription('Restart the bot process').toJSON(),
@@ -420,9 +424,9 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
             const realMember = await newMember.guild.members.fetch(realExecId);
             await realMember.send(
               `⚠️ **تحذير من نظام الحماية**\n` +
-              `حاولت تعطي رتبة مقفلة **${lockedRoleAdded.name}** لـ <@${newMember.id}>\n` +
-              `هذه الرتبة محمية ولا يحق لك إعطاؤها.\n` +
-              `**عدد التحذيرات:** ${warnCount}/3 — عند الوصول لـ 3 ستُطرد من السيرفر.`
+              `لا تعطي رتب بدون اذن مره ثانيه**${lockedRoleAdded.name}** لـ <@${newMember.id}>\n` +
+              `**هذه الرتبة ما عندك صلاحيه ولا يحق لك إعطاؤها.**\n` +
+              `**عدد التحذيرات:** ${warnCount}/3 — عند الوصول لـ 3 ستُطرد من السيرفر.**`
             );
           } catch {}
 
@@ -565,7 +569,7 @@ client.on(Events.GuildAuditLogEntryCreate, async (entry, guild) => {
     type: 'ban',
     executor: `<@${executor.id}>`,
     violation: `بان <@${entry.target?.id}> بدون صلاحية`,
-    punishment: '🔨 بان فوري',
+    punishment: 'ban ',
     color: COLORS.danger,
   });
   await punish(guild, executor.id, 'Banned a member without permission');
@@ -620,7 +624,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // ===================== /restart =====================
   if (interaction.commandName === 'restart') {
     if (!await ownerOnly()) return;
-    await interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '🔄 Restarting...', description: '> البوت رح يعيد التشغيل هلأ.' })] });
+    await interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '🔄 Restarting...', description: '> البوت رح يعيد التشغيل لوحده استناه' })] });
     console.log(`🔄 Restart requested by ${interaction.user.tag}`);
     setTimeout(() => process.exit(0), 1500);
     return;
@@ -633,11 +637,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const count = interaction.options.getInteger('count') || 10;
     try {
       if (!fs.existsSync(EVENTS_LOG_FILE)) {
-        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: '📋 Logs', description: '> لا يوجد سجل أحداث بعد.' })] });
+        return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: 'Logs', description: '> لا يوجد سجل أحداث بعد.' })] });
       }
       const raw   = fs.readFileSync(EVENTS_LOG_FILE, 'utf8').trim().split('\n').filter(Boolean);
       const lines = raw.slice(-count).reverse();
-      if (!lines.length) return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: '📋 Logs', description: '> السجل فارغ.' })] });
+      if (!lines.length) return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.info, title: ' Logs', description: '> السجل فارغ.' })] });
 
       const formatted = lines.map((l, i) => {
         const match = l.match(/^\[(.+?)\] \[(.+?)\] executor=(.+?) \| violation=(.+?) \| punishment=(.+)$/);
@@ -653,7 +657,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       if (cur) chunks.push(cur);
 
-      return interaction.editReply({ embeds: chunks.map((c, i) => replyEmbed({ color: COLORS.info, title: i === 0 ? `📋 آخر ${lines.length} أحداث` : '​', description: c })) });
+      return interaction.editReply({ embeds: chunks.map((c, i) => replyEmbed({ color: COLORS.info, title: i === 0 ? ` آخر ${lines.length} أحداث` : '​', description: c })) });
     } catch (err) {
       return interaction.editReply({ embeds: [replyEmbed({ color: COLORS.danger, title: '❌ Error', description: `> ${err.message}` })] });
     }
@@ -678,13 +682,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         totalEvents = fs.readFileSync(EVENTS_LOG_FILE, 'utf8').trim().split('\n').filter(Boolean).length;
     } catch {}
 
-    return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '📊 إحصائيات اليوم', description: [
-      `**📅 التاريخ:** \`${today}\``, '',
-      `**🔨 بانات اليوم:** \`${totalBans}\``,
-      `**👢 طرد اليوم:** \`${totalKicks}\``,
-      `**🗑️ حذف روم:** \`${totalChannelDel}\``,
-      `**🗑️ حذف رتبة:** \`${totalRoleDel}\``, '',
-      `**📋 إجمالي الأحداث المسجلة:** \`${totalEvents}\``,
+    return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: ' إحصائيات اليوم', description: [
+      `** التاريخ:** \`${today}\``, '',
+      `** بانات اليوم:** \`${totalBans}\``,
+      `* طرد اليوم:** \`${totalKicks}\``,
+      `** حذف روم:** \`${totalChannelDel}\``,
+      `** حذف رتبة:** \`${totalRoleDel}\``, '',
+      `** إجمالي الأحداث المسجلة:** \`${totalEvents}\``,
     ].join('\n') })] });
   }
 
@@ -751,7 +755,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         `**Server Settings**`, `> ${s(PROTECTION.serverSettings)}`, '',
         `**Anti-Raid**`, `> ${s(PROTECTION.antiRaid)} — Bans: \`${LIMITS.bans}/day\` | Mass: \`${LIMITS.massbanCount}/${LIMITS.massbanWindow/1000}s\` | Ch: \`${LIMITS.channelDeletes}\` | Roles: \`${LIMITS.roleDeletes}\``, '',
         `**Anti-Bots**`, `> ${s(PROTECTION.antiBots)}`, '',
-        `**Bot Role Protect**`, `> ${s(PROTECTION.botRoleProtect)}`,
+`**Bot Role Protect**`, `> ${s(PROTECTION.botRoleProtect)}`, '',
+        `**Anti Channel Spam**`, `> ${s(PROTECTION.antiRaid)} — Trigger: \`${LIMITS.channelCreateCount}/${LIMITS.channelCreateWindow/1000}s\``, '',
+        `**Anti Mass Mention**`, `> ${s(PROTECTION.antiRaid)} — Trigger: \`${LIMITS.mentionCount}/${LIMITS.mentionWindow/1000}s\``,
       ].join('\n') })] });
     }
     if (sub === 'toggle') {
@@ -765,12 +771,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const bans    = interaction.options.getInteger('bans');
       const ch      = interaction.options.getInteger('channels');
       const rl      = interaction.options.getInteger('roles');
-      const massban = interaction.options.getInteger('massban');
+      const massban     = interaction.options.getInteger('massban');
+      const channelspam = interaction.options.getInteger('channelspam');
+      const mention     = interaction.options.getInteger('mention');
       const changes = [];
       if (bans    != null) { LIMITS.bans           = bans;    changes.push(`Bans/day: \`${bans}\``); }
       if (ch      != null) { LIMITS.channelDeletes = ch;      changes.push(`Channels: \`${ch}\``); }
       if (rl      != null) { LIMITS.roleDeletes    = rl;      changes.push(`Roles: \`${rl}\``); }
-      if (massban != null) { LIMITS.massbanCount   = massban; changes.push(`Mass Ban: \`${massban}/${LIMITS.massbanWindow/1000}s\``); }
+      if (massban != null) { LIMITS.massbanCount      = massban;  changes.push(`Mass Ban: \`${massban}/${LIMITS.massbanWindow/1000}s\``); }
+      if (channelspam != null) { LIMITS.channelCreateCount = channelspam; changes.push(`Channel Spam: \`${channelspam}/${LIMITS.channelCreateWindow/1000}s\``); }
+      if (mention != null) { LIMITS.mentionCount         = mention;  changes.push(`Mass Mention: \`${mention}/${LIMITS.mentionWindow/1000}s\``); }
       if (!changes.length) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: '> No values provided.' })] });
       return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '✅ Limits Updated', description: `> ${changes.join(' — ')}` })] });
     }
@@ -856,7 +866,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { key:'bots', label:'Allowed Bots', mention: id => `<@${id}>` },
       ];
       const desc = sections.map(s => { const l = whitelist[s.key] || []; return `**${s.label}**\n> ${l.length ? l.map(s.mention).join(' ') : '*empty*'}`; }).join('\n\n');
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '📋 Full Whitelist', description: desc, footer: `by zwh. • Total users: ${whitelist.users.length}` })] });
+      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: ' Full Whitelist', description: desc, footer: `by zwh. • Total users: ${whitelist.users.length}` })] });
     }
   }
 });
@@ -915,37 +925,70 @@ client.on(Events.MessageCreate, async (msg) => {
 });
 
 
-  if (!changed) return;
-
-  const entry = await getAuditEntry(newChannel.guild, AuditLogEvent.ChannelOverwriteUpdate);
-  if (!entry) return;
-  const executor = entry.executor;
+// =======================================
+//   Protection — Anti Channel Spam
+//   لو حد أنشأ أكثر من X رومات في وقت قصير يتبان
+// =======================================
+const recentChannelCreates = {};
+client.on(Events.ChannelCreate, async (channel) => {
+  if (!PROTECTION.antiRaid || !channel.guild) return;
+  const executor = await getAuditUser(channel.guild, AuditLogEvent.ChannelCreate, channel.id);
   if (!executor || executor.id === client.user.id) return;
+  const roles = await getMemberRoles(channel.guild, executor.id);
+  if (isWhitelisted(executor.id, roles)) return;
 
-  const roles = await getMemberRoles(newChannel.guild, executor.id);
-  if (isWhitelisted(executor.id, roles)) return; // فول وايت ليست مسموح
+  const now = Date.now();
+  if (!recentChannelCreates[executor.id]) recentChannelCreates[executor.id] = [];
+  recentChannelCreates[executor.id].push(now);
+  recentChannelCreates[executor.id] = recentChannelCreates[executor.id].filter(t => now - t <= LIMITS.channelCreateWindow);
+  const count = recentChannelCreates[executor.id].length;
 
-  const where = isCatLocked
-    ? `كاتيقوري مقفل **${newChannel.name}**`
-    : `روم **${newChannel.name}** داخل كاتيقوري مقفل`;
+  if (count >= LIMITS.channelCreateCount) {
+    await sendLog({
+      type: 'channelDel',
+      executor: `<@${executor.id}>`,
+      violation: `أنشأ ${count} رومات في ${LIMITS.channelCreateWindow / 1000}s`,
+      punishment: 'ban (channel spam)',
+      color: COLORS.danger,
+    });
+    recentChannelCreates[executor.id] = [];
+    try { await channel.delete(); } catch {}
+    await punish(channel.guild, executor.id, `Channel spam (${count} in ${LIMITS.channelCreateWindow / 1000}s)`);
+  }
+});
 
-  await sendLog({
-    type: 'serverEdit',
-    executor: `<@${executor.id}>`,
-    violation: `غيّر صلاحيات ${where}`,
-    punishment: '🔨 بان + استعادة الصلاحيات',
-    color: COLORS.danger,
-  });
+// =======================================
+//   Protection — Anti Mass Mention
+//   لو حد منشن everyone أو here أكثر من X مرات يتبان
+// =======================================
+const recentMentions = {};
+client.on(Events.MessageCreate, async (msg) => {
+  if (!PROTECTION.antiRaid || !msg.guild) return;
+  if (msg.author.bot) return;
+  if (!msg.mentions.everyone) return; // everyone أو here
 
-  // استعادة الصلاحيات
-  try {
-    const overwrites = oldChannel.permissionOverwrites.cache.map(ow => ({
-      id: ow.id, allow: ow.allow, deny: ow.deny, type: ow.type,
-    }));
-    await newChannel.permissionOverwrites.set(overwrites);
-  } catch {}
+  const userId = msg.author.id;
+  const roles  = await getMemberRoles(msg.guild, userId);
+  if (isWhitelisted(userId, roles)) return;
 
-  await punish(newChannel.guild, executor.id, 'Changed permissions of locked category/channel');
+  const now = Date.now();
+  if (!recentMentions[userId]) recentMentions[userId] = [];
+  recentMentions[userId].push(now);
+  recentMentions[userId] = recentMentions[userId].filter(t => now - t <= LIMITS.mentionWindow);
+  const count = recentMentions[userId].length;
+
+  if (count >= LIMITS.mentionCount) {
+    await sendLog({
+      type: 'ban',
+      executor: `<@${userId}>`,
+      violation: `منشن everyone/here ${count} مرات في ${LIMITS.mentionWindow / 1000}s`,
+      punishment: 'ban',
+      color: COLORS.danger,
+    });
+    recentMentions[userId] = [];
+    try { await msg.delete(); } catch {}
+    await punish(msg.guild, userId, `Mass mention (${count} in ${LIMITS.mentionWindow / 1000}s)`);
+  }
 });
 
 // =======================================
@@ -954,7 +997,7 @@ client.on(Events.MessageCreate, async (msg) => {
 client.once(Events.ClientReady, async () => {
   const presences = [
     { name: '𝒃𝒚 𝒛𝒘𝒉.', type: 0 },
-    { name: 'Ez shadow ', type: 3 },
+    { name: 'discord.gg/ez1 ', type: 3 },
     { name: 'hello', type: 3 },
     { name: '𝒃𝒚 𝒛𝒘𝒉.', type: 2 },
   ];
