@@ -419,6 +419,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
           lockedRoleWarns[realExecId]++;
           const warnCount = lockedRoleWarns[realExecId];
 
+ 
           // رسالة الخاص — عدّل النص من WARN_DM_MESSAGE أعلى الكود
           try {
             const realMember = await newMember.guild.members.fetch(realExecId);
