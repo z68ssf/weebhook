@@ -423,8 +423,8 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
           try {
             const realMember = await newMember.guild.members.fetch(realExecId);
             await realMember.send(
-              `⚠️ **تحذير من نظام الحماية**\n` +
-              `لا تعطي رتب بدون اذن مره ثانيه**${lockedRoleAdded.name}** لـ <@${newMember.id}>\n` +
+              `⚠️ **بطل واسطات**\n` +
+              `**لا تعطي رتب بدون اذن مره ثانيه**`\n`${lockedRoleAdded.name} لـ <@${newMember.id}>\n**` +
               `**هذه الرتبة ما عندك صلاحيه ولا يحق لك إعطاؤها.**\n` +
               `**عدد التحذيرات:** ${warnCount}/3 — عند الوصول لـ 3 ستُطرد من السيرفر.**`
             );
@@ -480,7 +480,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     type: viaProxy ? 'proxyRole' : 'adminRole',
     executor: `<@${realExecutorId}>`,
     violation: `أعطى رتبة **${dangerRole.name}** (Admin) لـ <@${newMember.id}>${viaProxy ? ` عبر <@${executor.id}>` : ''}`,
-    punishment: '🔨 بان دائم + سحب الرتبة',
+    punishment: ' بان',
     extra: extraInfo,
     color: COLORS.danger,
   });
