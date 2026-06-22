@@ -5,7 +5,6 @@ const {
 } = require('discord.js');
 const http = require('http');
 const fs   = require('fs');
-require('dotenv').config();
 
 const client = new Client({
   intents: [
@@ -25,7 +24,7 @@ http.createServer((req, res) => { res.writeHead(200); res.end('Bot is running �
 
 // أضف أي أونر إضافي هنا
 const BOT_OWNER_IDS  = ['1224722940701048927'];
-const BOT_TOKEN      = process.env.BOT_TOKEN;
+const BOT_TOKEN      = process.env.BOT_TOKEN ||;
 const CLIENT_ID      = '1511509960335425626';
 const LOG_CHANNEL_ID = '1513261574012407858';
 
