@@ -1,5 +1,15 @@
 {
+  "name": "my-app",
+  "version": "1.0.0",
+  "description": "Node.js app",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.26.4"
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2"
   }
 }
