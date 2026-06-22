@@ -5,7 +5,7 @@ const {
 } = require('discord.js');
 const http = require('http');
 const fs   = require('fs');
-
+require('dotenv').config();
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
