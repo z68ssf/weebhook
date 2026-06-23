@@ -1,8 +1,7 @@
 const {
   Client, GatewayIntentBits, Events, AuditLogEvent,
   PermissionsBitField, REST, Routes, SlashCommandBuilder,
-  EmbedBuilder, ContainerBuilder, TextDisplayBuilder,
-  SeparatorBuilder, SeparatorSpacingSize, MessageFlags,
+  EmbedBuilder, ContainerBuilder, TextDisplayBuilder, MessageFlags,
 } = require('discord.js');
 const http = require('http');
 const fs   = require('fs');
@@ -23,17 +22,12 @@ http.createServer((req, res) => { res.writeHead(200); res.end('Bot is running �
   console.log(`🌐 Keep-alive server running on port ${PORT}`);
 });
 
-// أضف أي أونر إضافي هنا
 const BOT_OWNER_IDS  = ['1224722940701048927'];
 const BOT_TOKEN      = process.env.BOT_TOKEN;
 const CLIENT_ID      = '1511509960335425626';
 const LOG_CHANNEL_ID = '1513261574012407858';
 
-// ======= بوتات الطرف الثالث =======
-// أضف ID البرو بوت هنا — لما يعطي رتبة نبحث عن الشخص الحقيقي بالاسم من الـ reason
-const PROXY_BOTS = [ '282859044593598464'
-  // '123456789012345678', // Pro Bot ID
-];
+const PROXY_BOTS = ['282859044593598464'];
 
 const roomConfigs = [
   { channelId: '1160272271806574753', message: '🔥** 5 الاف روبوكس مجاني** <#1518708743565606922>', every: 2, webhookName: 'Ez shadow' },
@@ -47,6 +41,7 @@ const roomConfigs = [
   { channelId: '1461764456634646538', message: '🔥** 5 الاف روبوكس مجاني** <#1518708743565606922>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1507029588109168822', message: '🔥** 5 الاف روبوكس مجاني** <#1518708743565606922>', every: 2, webhookName: 'Ez shadow' },
   { channelId: '1489362661543121078', message: '🔥** 5 الاف روبوكس مجاني** <#1518708743565606922>', every: 2, webhookName: 'Ez shadow' },
+  { channelId: '1493332535365599303', message: '🔥** 5 الاف روبوكس مجاني** <#1518708743565606922>', every: 2, webhookName: 'Ez shadow' },
 ];
 
 const PROTECTION = { serverSettings: true, antiRaid: false, antiBots: true, botRoleProtect: true };
@@ -75,7 +70,6 @@ function loadWhitelist() {
 function saveWhitelist() { fs.writeFileSync(WL_FILE, JSON.stringify(whitelist, null, 2)); }
 let whitelist = loadWhitelist();
 
-// ======= Rolelock =======
 function loadRolelock() {
   try { return JSON.parse(fs.readFileSync(ROLELOCK_FILE, 'utf8')); } catch { return []; }
 }
@@ -228,6 +222,20 @@ function replyEmbed({ color, title, description, fields = [], footer = 'by zwh.'
     .setTimestamp();
 }
 
+// ======= AFK =======
+const afkUsers = {};
+function formatDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+// ======= Anti Mass Mention =======
+const recentMentions = {};
+
 // =======================================
 //   Register slash commands
 // =======================================
@@ -279,8 +287,7 @@ async function registerCommands() {
     new SlashCommandBuilder().setName('restart').setDescription('Restart the bot process').toJSON(),
 
     new SlashCommandBuilder()
-      .setName('afk')
-      .setDescription('Set your AFK status')
+      .setName('afk').setDescription('Set your AFK status')
       .addSubcommand(s => s.setName('set').setDescription('Set AFK with a reason')
         .addStringOption(o => o.setName('reason').setDescription('AFK reason').setRequired(true)))
       .addSubcommand(s => s.setName('remove').setDescription('Remove your AFK status'))
@@ -348,7 +355,7 @@ client.on(Events.GuildUpdate, async (oldGuild, newGuild) => {
 });
 
 const memberRoleCooldown = new Set();
-const lockedRoleWarns = {}; // عداد تحذيرات الرتب المقفلة
+const lockedRoleWarns = {};
 
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   if (!PROTECTION.serverSettings) return;
@@ -356,7 +363,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 
   const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
 
-  // ======= حماية الرتب المقفلة =======
+  // حماية الرتب المقفلة
   const lockedRoleAdded = addedRoles.find(r => lockedRoles.includes(r.id));
   if (lockedRoleAdded) {
     const entryLocked = await getAuditEntry(newMember.guild, AuditLogEvent.MemberRoleUpdate, newMember.id);
@@ -401,8 +408,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     }
   }
 
-  // ======= حماية رتبة الأدمن =======
-  // نستثني الرتب المقفلة من فحص الأدمن عشان ما يتكرر اللوق
+  // حماية رتبة الأدمن
   const dangerRole = addedRoles.find(r => r.permissions.has(PermissionsBitField.Flags.Administrator) && !lockedRoles.includes(r.id));
   if (!dangerRole) return;
 
@@ -503,7 +509,6 @@ client.on(Events.GuildRoleDelete, async (role) => {
   if (over) await punish(role.guild, executor.id, `Exceeded role delete limit`);
 });
 
-// ======= Anti-Ban =======
 client.on(Events.GuildAuditLogEntryCreate, async (entry, guild) => {
   if (!PROTECTION.antiRaid) return;
   if (entry.action !== AuditLogEvent.MemberBanAdd) return;
@@ -548,69 +553,6 @@ client.on(Events.WebhooksUpdate, async (channel) => {
   } catch {}
 });
 
-
-// =======================================
-//   AFK System — Components V2
-// =======================================
-
-// { userId: { reason, timestamp } }
-const afkUsers = {};
-
-function formatDuration(ms) {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${s % 60}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
-}
-
-client.on(Events.MessageCreate, async (msg) => {
-  if (msg.author.bot || !msg.guild) return;
-
-  // لو هو نفسه AFK — شيل حالته
-  if (afkUsers[msg.author.id]) {
-    const { timestamp } = afkUsers[msg.author.id];
-    delete afkUsers[msg.author.id];
-    const dur = formatDuration(Date.now() - timestamp);
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`👋 Welcome back <@${msg.author.id}>! Your AFK has been removed.`),
-        new TextDisplayBuilder().setContent(`⏱️ You were AFK for **${dur}**`)
-      );
-    try {
-      await msg.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2,
-        allowedMentions: { repliedUser: false },
-      });
-    } catch {}
-    return;
-  }
-
-  // لو منشن أحد AFK
-  for (const mentioned of msg.mentions.users.values()) {
-    if (!afkUsers[mentioned.id]) continue;
-    const { reason, timestamp } = afkUsers[mentioned.id];
-    const dur = formatDuration(Date.now() - timestamp);
-    const jumpLink = `https://discord.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id}`;
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`<@${mentioned.id}> is currently AFK for reason: **${reason}**`),
-        new TextDisplayBuilder().setContent(`⏱️ Since **${dur}** ago`),
-        new TextDisplayBuilder().setContent(`🔗 [Jump to message](${jumpLink})`)
-      );
-    try {
-      await msg.reply({
-        content: `yo <@${msg.author.id}>`,
-        components: [container],
-        flags: MessageFlags.IsComponentsV2,
-        allowedMentions: { users: [msg.author.id] },
-      });
-    } catch {}
-  }
-});
-
 // =======================================
 //   Protection — Anti Channel Spam
 // =======================================
@@ -635,25 +577,83 @@ client.on(Events.ChannelCreate, async (channel) => {
 });
 
 // =======================================
-//   Protection — Anti Mass Mention
+//   MessageCreate — موحّد (AFK + Anti Mention + Webhook counter)
 // =======================================
-const recentMentions = {};
 client.on(Events.MessageCreate, async (msg) => {
-  if (!PROTECTION.antiRaid || !msg.guild || msg.author.bot) return;
-  if (!msg.mentions.everyone) return;
-  const userId = msg.author.id;
-  const roles  = await getMemberRoles(msg.guild, userId);
-  if (isWhitelisted(userId, roles)) return;
-  const now = Date.now();
-  if (!recentMentions[userId]) recentMentions[userId] = [];
-  recentMentions[userId].push(now);
-  recentMentions[userId] = recentMentions[userId].filter(t => now - t <= LIMITS.mentionWindow);
-  const count = recentMentions[userId].length;
-  if (count >= LIMITS.mentionCount) {
-    await sendLog({ type: 'ban', executor: `<@${userId}>`, violation: `منشن everyone/here ${count} مرات في ${LIMITS.mentionWindow / 1000}s`, punishment: 'بان', color: COLORS.danger });
-    recentMentions[userId] = [];
-    try { await msg.delete(); } catch {}
-    await punish(msg.guild, userId, `Mass mention`);
+  if (msg.author.bot) return;
+
+  // ======= AFK =======
+  if (msg.guild) {
+    // لو هو نفسه AFK — شيل حالته
+    if (afkUsers[msg.author.id]) {
+      const { timestamp } = afkUsers[msg.author.id];
+      delete afkUsers[msg.author.id];
+      const dur = formatDuration(Date.now() - timestamp);
+      const container = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`<a:by_ez_75:1426985705640296478> Welcome back <@${msg.author.id}>! Your AFK has been removed.`),
+          new TextDisplayBuilder().setContent(`<a:by_ez_85:1436789611538944020> You were AFK for **${dur}**`)
+        );
+      try {
+        await msg.reply({
+          components: [container],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { repliedUser: false },
+        });
+      } catch {}
+      // نكمل ولا نرجع — ممكن يكون منشن أحد بنفس الوقت
+    }
+
+    // لو منشن أحد AFK
+    for (const mentioned of msg.mentions.users.values()) {
+      if (!afkUsers[mentioned.id]) continue;
+      const { reason, timestamp } = afkUsers[mentioned.id];
+      const dur = formatDuration(Date.now() - timestamp);
+      const jumpLink = `https://discord.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id}`;
+      const container = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`<@${mentioned.id}> is currently AFK for reason: **${reason}**`),
+          new TextDisplayBuilder().setContent(`<:by_ez_11:1421844801363513525> Since **${dur}** ago`),
+          new TextDisplayBuilder().setContent(`🔗 [Jump to message](${jumpLink})`)
+        );
+      try {
+        await msg.reply({
+          content: `yo <@${msg.author.id}>`,
+          components: [container],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { users: [msg.author.id] },
+        });
+      } catch {}
+    }
+
+    // ======= Anti Mass Mention =======
+    if (PROTECTION.antiRaid && msg.mentions.everyone) {
+      const userId = msg.author.id;
+      const roles  = await getMemberRoles(msg.guild, userId);
+      if (!isWhitelisted(userId, roles)) {
+        const now = Date.now();
+        if (!recentMentions[userId]) recentMentions[userId] = [];
+        recentMentions[userId].push(now);
+        recentMentions[userId] = recentMentions[userId].filter(t => now - t <= LIMITS.mentionWindow);
+        const count = recentMentions[userId].length;
+        if (count >= LIMITS.mentionCount) {
+          await sendLog({ type: 'ban', executor: `<@${userId}>`, violation: `منشن everyone/here ${count} مرات في ${LIMITS.mentionWindow / 1000}s`, punishment: 'بان', color: COLORS.danger });
+          recentMentions[userId] = [];
+          try { await msg.delete(); } catch {}
+          await punish(msg.guild, userId, `Mass mention`);
+          return;
+        }
+      }
+    }
+  }
+
+  // ======= Webhook Counter =======
+  const rs = state[msg.channelId];
+  if (!rs || !rs.hook) return;
+  rs.counter++;
+  if (rs.counter >= rs.config.every) {
+    rs.counter = 0;
+    await sendWebhookMessage(rs);
   }
 });
 
@@ -665,7 +665,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const ownerOnly = async () => {
     if (!BOT_OWNER_IDS.includes(interaction.user.id)) {
-      await interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.danger, title: '🚫 Access Denied', description: '> This command is for bot owners only.' })] });
+      await interaction.reply({ embeds: [replyEmbed({ color: COLORS.danger, title: '🚫 Access Denied', description: '> This command is for bot owners only.' })] });
       return false;
     }
     return true;
@@ -680,10 +680,39 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 
+  // ===================== /afk =====================
+  if (interaction.commandName === 'afk') {
+    const sub = interaction.options.getSubcommand();
+
+    if (sub === 'set') {
+      const reason = interaction.options.getString('reason');
+      afkUsers[interaction.user.id] = { reason, timestamp: Date.now() };
+      const container = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(`<a:0eedb1708500b0f0a1fcfdb2a5fe3f5b:1367454646603354203> You are now AFK`),
+          new TextDisplayBuilder().setContent(` Reason: **${reason}**`),
+          new TextDisplayBuilder().setContent(`<a:by_ez_110:1467020393289093121> Your AFK will be removed when you send a message.`)
+        );
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
+
+    if (sub === 'remove') {
+      if (!afkUsers[interaction.user.id]) {
+        const container = new ContainerBuilder()
+          .addTextDisplayComponents(new TextDisplayBuilder().setContent(`⚠️ You are not currently AFK.`));
+        return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+      }
+      delete afkUsers[interaction.user.id];
+      const container = new ContainerBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`✅ Your AFK status has been removed.`));
+      return interaction.reply({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    }
+  }
+
   // ===================== /logs =====================
   if (interaction.commandName === 'logs') {
     if (!await ownerOnly()) return;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     const count = interaction.options.getInteger('count') || 10;
     try {
       if (!fs.existsSync(EVENTS_LOG_FILE))
@@ -727,7 +756,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (fs.existsSync(EVENTS_LOG_FILE))
         totalEvents = fs.readFileSync(EVENTS_LOG_FILE, 'utf8').trim().split('\n').filter(Boolean).length;
     } catch {}
-    return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: 'إحصائيات اليوم', description: [
+    return interaction.reply({ embeds: [replyEmbed({ color: COLORS.info, title: 'إحصائيات اليوم', description: [
       `**📅 التاريخ:** \`${today}\``, '',
       `**🔨 بانات اليوم:** \`${totalBans}\``,
       `**👢 طرد اليوم:** \`${totalKicks}\``,
@@ -740,7 +769,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // ===================== /unban =====================
   if (interaction.commandName === 'unban') {
     if (!await ownerOnly()) return;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     const userId = interaction.options.getString('user_id').trim();
     const reason = interaction.options.getString('reason') || 'Manual unban by owner';
     try {
@@ -756,7 +785,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.commandName === 'webhooks') {
     if (!await ownerOnly()) return;
     const sub = interaction.options.getSubcommand();
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
     if (sub === 'list') {
       try {
         const all = await interaction.guild.fetchWebhooks();
@@ -794,7 +823,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const sub = interaction.options.getSubcommand();
     if (sub === 'status') {
       const s = v => v ? '✅ Enabled' : '❌ Disabled';
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: 'Protection Status', description: [
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.info, title: 'Protection Status', description: [
         `**Server Settings**`, `> ${s(PROTECTION.serverSettings)}`, '',
         `**Anti-Raid**`, `> ${s(PROTECTION.antiRaid)} — Bans: \`${LIMITS.bans}/day\` | Ch: \`${LIMITS.channelDeletes}\` | Roles: \`${LIMITS.roleDeletes}\``, '',
         `**Anti Channel Spam**`, `> ${s(PROTECTION.antiRaid)} — Trigger: \`${LIMITS.channelCreateCount}/${LIMITS.channelCreateWindow/1000}s\``, '',
@@ -808,7 +837,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const enabled = interaction.options.getBoolean('enabled');
       const names   = { serverSettings: 'Server Settings + Admin', antiRaid: 'Anti-Raid', antiBots: 'Anti-Bots', botRoleProtect: 'Bot Role Protect' };
       PROTECTION[type] = enabled;
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: enabled ? COLORS.success : COLORS.danger, title: enabled ? '✅ Enabled' : '❌ Disabled', description: `> **${names[type]}** is now ${enabled ? 'enabled' : 'disabled'}.` })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: enabled ? COLORS.success : COLORS.danger, title: enabled ? '✅ Enabled' : '❌ Disabled', description: `> **${names[type]}** is now ${enabled ? 'enabled' : 'disabled'}.` })] });
     }
     if (sub === 'limits') {
       const bans        = interaction.options.getInteger('bans');
@@ -824,8 +853,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (massban     != null) { LIMITS.massbanCount       = massban;     changes.push(`Mass Ban: \`${massban}/${LIMITS.massbanWindow/1000}s\``); }
       if (channelspam != null) { LIMITS.channelCreateCount = channelspam; changes.push(`Channel Spam: \`${channelspam}/${LIMITS.channelCreateWindow/1000}s\``); }
       if (mention     != null) { LIMITS.mentionCount       = mention;     changes.push(`Mass Mention: \`${mention}/${LIMITS.mentionWindow/1000}s\``); }
-      if (!changes.length) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: '> No values provided.' })] });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '✅ Limits Updated', description: `> ${changes.join(' — ')}` })] });
+      if (!changes.length) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: '> No values provided.' })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Limits Updated', description: `> ${changes.join(' — ')}` })] });
     }
   }
 
@@ -837,71 +866,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (sub === 'add') {
       if (lockedRoles.includes(role.id))
-        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> <@&${role.id}> مقفلة مسبقاً.` })] });
+        return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ موجودة', description: `> <@&${role.id}> مقفلة مسبقاً.` })] });
       lockedRoles.push(role.id);
       saveRolelock();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `قفل رتبة <@&${role.id}>`, punishment: 'فقط الفول وايت ليست يقدرون يعطونها', color: COLORS.warn });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> <@&${role.id}> الحين مقفلة.` })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '🔒 تم القفل', description: `> <@&${role.id}> الحين مقفلة.` })] });
     }
     if (sub === 'remove') {
       if (!lockedRoles.includes(role.id))
-        return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> <@&${role.id}> مو مقفلة.` })] });
+        return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ مو موجودة', description: `> <@&${role.id}> مو مقفلة.` })] });
       lockedRoles = lockedRoles.filter(id => id !== role.id);
       saveRolelock();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `فك قفل رتبة <@&${role.id}>`, punishment: '—', color: COLORS.success });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> <@&${role.id}> الحين غير مقفلة.` })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '🔓 تم الفك', description: `> <@&${role.id}> الحين غير مقفلة.` })] });
     }
     if (sub === 'list') {
-      // الإصلاح — كانت "locked" غير معرّفة
       const desc = lockedRoles.length
         ? lockedRoles.map(id => `> <@&${id}>`).join('\n')
         : '> *لا يوجد رتب مقفلة*';
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: '🔒 الرتب المقفلة', description: desc })] });
-    }
-  }
-
-  // ===================== /afk =====================
-  if (interaction.commandName === 'afk') {
-    const sub = interaction.options.getSubcommand();
-
-    if (sub === 'set') {
-      const reason = interaction.options.getString('reason');
-      afkUsers[interaction.user.id] = { reason, timestamp: Date.now() };
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`✅ You are now AFK`),
-          new TextDisplayBuilder().setContent(`📝 Reason: **${reason}**`),
-          new TextDisplayBuilder().setContent(`💡 Your AFK will be removed when you send a message.`)
-        );
-      return interaction.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2,
-        ephemeral: true,
-      });
-    }
-
-    if (sub === 'remove') {
-      if (!afkUsers[interaction.user.id]) {
-        const container = new ContainerBuilder()
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`⚠️ You are not currently AFK.`)
-          );
-        return interaction.reply({
-          components: [container],
-          flags: MessageFlags.IsComponentsV2,
-          ephemeral: true,
-        });
-      }
-      delete afkUsers[interaction.user.id];
-      const container = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`✅ Your AFK status has been removed.`)
-        );
-      return interaction.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2,
-        ephemeral: true,
-      });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.info, title: '🔒 الرتب المقفلة', description: desc })] });
     }
   }
 
@@ -925,21 +908,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (sub === 'add') {
       const target = getTarget();
-      if (target.error) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: `> ${target.error}` })] });
+      if (target.error) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: `> ${target.error}` })] });
       const key = keyMap[type]; const list = whitelist[key] || [];
-      if (list.includes(target.id)) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Already Exists', description: `> ${target.name} is already in **${typeNames[type]}**.` })] });
+      if (list.includes(target.id)) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Already Exists', description: `> ${target.name} is already in **${typeNames[type]}**.` })] });
       whitelist[key] = [...list, target.id]; saveWhitelist();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `Added ${target.name} to (${typeNames[type]})`, punishment: '—', color: COLORS.success });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '✅ Added', description: `> ${target.name} added to **${typeNames[type]}**.` })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Added', description: `> ${target.name} added to **${typeNames[type]}**.` })] });
     }
     if (sub === 'remove') {
       const target = getTarget();
-      if (target.error) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: `> ${target.error}` })] });
+      if (target.error) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️', description: `> ${target.error}` })] });
       const key = keyMap[type]; const list = whitelist[key] || [];
-      if (!list.includes(target.id)) return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Not Found', description: `> ${target.name} is not in **${typeNames[type]}**.` })] });
+      if (!list.includes(target.id)) return interaction.reply({ embeds: [replyEmbed({ color: COLORS.warn, title: '⚠️ Not Found', description: `> ${target.name} is not in **${typeNames[type]}**.` })] });
       whitelist[key] = list.filter(id => id !== target.id); saveWhitelist();
       await sendLog({ type: 'whitelist', executor: `<@${interaction.user.id}>`, violation: `Removed ${target.name} from (${typeNames[type]})`, punishment: '—', color: COLORS.danger });
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.success, title: '✅ Removed', description: `> ${target.name} removed from **${typeNames[type]}**.` })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.success, title: '✅ Removed', description: `> ${target.name} removed from **${typeNames[type]}**.` })] });
     }
     if (sub === 'list') {
       const sections = [
@@ -952,7 +935,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         { key:'bots', label:'Allowed Bots', mention: id => `<@${id}>` },
       ];
       const desc = sections.map(s => { const l = whitelist[s.key] || []; return `**${s.label}**\n> ${l.length ? l.map(s.mention).join(' ') : '*empty*'}`; }).join('\n\n');
-      return interaction.reply({ ephemeral: true, embeds: [replyEmbed({ color: COLORS.info, title: 'Full Whitelist', description: desc, footer: `by zwh. • Total users: ${whitelist.users.length}` })] });
+      return interaction.reply({ embeds: [replyEmbed({ color: COLORS.info, title: 'Full Whitelist', description: desc, footer: `by zwh. • Total users: ${whitelist.users.length}` })] });
     }
   }
 });
@@ -995,17 +978,6 @@ async function sendWebhookMessage(rs) {
     if (sent) rs.lastMessageId = sent.id;
   } finally { rs.sending = false; }
 }
-
-client.on(Events.MessageCreate, async (msg) => {
-  if (msg.author.bot) return;
-  const rs = state[msg.channelId];
-  if (!rs || !rs.hook) return;
-  rs.counter++;
-  if (rs.counter >= rs.config.every) {
-    rs.counter = 0;
-    await sendWebhookMessage(rs);
-  }
-});
 
 // =======================================
 //   Ready
