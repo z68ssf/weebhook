@@ -593,15 +593,16 @@ client.on(Events.MessageCreate, async (msg) => {
     if (!afkUsers[mentioned.id]) continue;
     const { reason, timestamp } = afkUsers[mentioned.id];
     const dur = formatDuration(Date.now() - timestamp);
+    const jumpLink = `https://discord.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id}`;
     const container = new ContainerBuilder()
       .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(`yo <@${msg.author.id}>`),
         new TextDisplayBuilder().setContent(`<@${mentioned.id}> is currently AFK for reason: **${reason}**`),
         new TextDisplayBuilder().setContent(`⏱️ Since **${dur}** ago`),
-        new TextDisplayBuilder().setContent(`🔗 [Jump to message](https://discord.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id})`)
+        new TextDisplayBuilder().setContent(`🔗 [Jump to message](${jumpLink})`)
       );
     try {
       await msg.reply({
+        content: `yo <@${msg.author.id}>`,
         components: [container],
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { users: [msg.author.id] },
